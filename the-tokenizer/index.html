@@ -96,8 +96,14 @@
   }
   @keyframes markerPop { from { transform:scaleY(0); } to { transform:scaleY(1); } }
 
+  .gap-btn.space-gap { width: 24px; min-width: 24px; }
+  .gap-btn.space-gap::before { background: rgba(255,255,255,0.05); width: 100%; height: 60%; border-radius: 4px; }
+  .gap-btn.space-gap:hover::before { background: rgba(99,102,241,0.2); }
+  .gap-btn.space-gap.active::before { background: var(--accent); width: 100%; box-shadow: 0 0 8px rgba(99,102,241,0.5); }
+
   @media (max-width:500px) {
     .gap-btn { width: 28px; min-width: 28px; }
+    .gap-btn.space-gap { width: 30px; min-width: 30px; }
     .text-area { padding: 16px 8px; font-size: 1.1rem; }
   }
 
@@ -731,13 +737,24 @@ function showChallenge() {
   area.innerHTML = '';
   const text = ch.text;
   for (let i = 0; i < text.length; i++) {
-    // Gap button before this character (not before first)
     if (i > 0) {
-      const gap = document.createElement('div');
-      gap.className = 'gap-btn';
-      gap.dataset.splitAt = i;
-      gap.addEventListener('click', () => toggleGap(gap, i));
-      area.appendChild(gap);
+      if (text[i] === ' ') {
+        // Space char: render as a tappable gap itself (no separate gap + char)
+        const spaceGap = document.createElement('div');
+        spaceGap.className = 'gap-btn space-gap';
+        spaceGap.dataset.splitAt = i;
+        spaceGap.addEventListener('click', () => toggleGap(spaceGap, i));
+        area.appendChild(spaceGap);
+        continue;
+      }
+      if (text[i - 1] !== ' ') {
+        // Normal gap between non-space chars
+        const gap = document.createElement('div');
+        gap.className = 'gap-btn';
+        gap.dataset.splitAt = i;
+        gap.addEventListener('click', () => toggleGap(gap, i));
+        area.appendChild(gap);
+      }
     }
     const span = document.createElement('span');
     span.className = 'char-span';
