@@ -52,6 +52,30 @@
   }
   .btn-primary:hover { filter: brightness(1.15); transform: translateY(-1px); }
 
+  /* Language Picker */
+  .lang-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    width: 100%;
+    max-width: 360px;
+  }
+  .lang-btn {
+    background: var(--bg-card);
+    border: 2px solid rgba(99,102,241,0.2);
+    color: var(--text);
+    padding: 18px 16px;
+    border-radius: var(--radius);
+    font-size: 1.1rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    justify-content: center;
+  }
+  .lang-btn:hover { border-color: var(--accent); background: var(--bg-hover); }
+  .lang-flag { font-size: 1.5rem; }
+
   /* Title Screen */
   #screen-title { align-items:center; justify-content:center; text-align:center; gap:24px; min-height:80vh; }
   #screen-title h1 { font-size:2.4rem; font-weight:800; line-height:1.2; }
@@ -100,12 +124,6 @@
     padding: 2px 0;
   }
   .token-span.visible { opacity:1; }
-  .token-span.highlight {
-    background: rgba(99,102,241,0.2);
-    border-radius: 4px;
-    padding: 2px 4px;
-    margin: 0 -4px;
-  }
   .blank-cursor {
     display: inline-block;
     width: 2px; height: 1.3em;
@@ -211,10 +229,8 @@
   .points-earned.ok { background:var(--amber-bg); color:var(--amber); }
   .points-earned.bad { background:var(--red-bg); color:var(--red); }
 
-  /* Continue button area */
   .continue-area { display:flex; justify-content:center; padding:8px 0 16px; }
 
-  /* Progress */
   .progress-area { margin-top:auto; padding-top:16px; }
   .progress-bar-bg {
     height:6px; background:rgba(255,255,255,0.06); border-radius:3px; overflow:hidden;
@@ -225,7 +241,6 @@
   }
   .progress-label { text-align:center; font-size:0.8rem; color:var(--text-dim); margin-top:6px; }
 
-  /* Round Intro */
   #screen-round-intro { align-items:center; justify-content:center; text-align:center; gap:20px; min-height:60vh; }
   #screen-round-intro .round-num { color:var(--accent); font-size:0.9rem; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; }
   #screen-round-intro h2 { font-size:1.8rem; font-weight:800; }
@@ -235,7 +250,6 @@
     padding:6px 16px; border-radius:99px; font-size:0.85rem; font-weight:600;
   }
 
-  /* Round Summary */
   #screen-round-summary { align-items:center; justify-content:center; text-align:center; gap:20px; min-height:60vh; }
   .summary-score { font-size:2.5rem; font-weight:800; color:var(--accent); }
   .summary-breakdown { color:var(--text-dim); font-size:0.95rem; }
@@ -250,7 +264,6 @@
   }
   .takeaway-box .takeaway-label { font-weight:700; color:var(--accent); font-size:0.85rem; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:8px; }
 
-  /* Game Complete */
   #screen-complete { align-items:center; justify-content:center; text-align:center; gap:20px; min-height:80vh; }
   #screen-complete h2 { font-size:2rem; font-weight:800; }
   .final-score { font-size:3rem; font-weight:800; color:var(--accent); }
@@ -279,6 +292,7 @@
     .sentence-area { font-size:1rem; padding:16px; }
     .option-token { min-width:70px; font-size:0.9rem; }
     .concepts-grid { grid-template-columns:1fr; }
+    .lang-grid { grid-template-columns:1fr; max-width:240px; }
   }
 </style>
 </head>
@@ -286,19 +300,10 @@
 
 <!-- Title Screen -->
 <div id="screen-title" class="screen active">
-  <h1>Guess the<br><span>Next Token</span></h1>
-  <div class="title-tokens">
-    <span class="title-token">The</span>
-    <span class="title-token">cat</span>
-    <span class="title-token">sat</span>
-    <span class="title-token" style="color:var(--accent)">???</span>
-  </div>
-  <p class="subtitle">
-    Large Language Models generate text by predicting one token at a time.
-    Step into the role of an LLM and see if you can guess what comes next.
-    No AI knowledge required!
-  </p>
-  <button class="btn-primary" onclick="startGame()">Start Playing</button>
+  <h1 id="title-heading">Guess the<br><span>Next Token</span></h1>
+  <div class="title-tokens" id="title-tokens"></div>
+  <p class="subtitle" id="title-subtitle"></p>
+  <div class="lang-grid" id="lang-grid"></div>
 </div>
 
 <!-- Round Intro -->
@@ -307,7 +312,7 @@
   <h2 id="intro-title"></h2>
   <p class="round-desc" id="intro-desc"></p>
   <span class="concept-badge" id="intro-concept"></span>
-  <button class="btn-primary" onclick="startRound()">Begin</button>
+  <button class="btn-primary" id="btn-begin" onclick="startRound()"></button>
 </div>
 
 <!-- Game Play -->
@@ -325,12 +330,12 @@
   <div class="sentence-area" id="sentence-area"></div>
   <div class="options-area" id="options-area"></div>
   <div class="explanation-area" id="explanation-area">
-    <div class="label">How it works</div>
+    <div class="label" id="explanation-label"></div>
     <p id="explanation-text"></p>
     <div id="points-display"></div>
   </div>
   <div class="continue-area">
-    <button class="btn-primary" id="btn-continue" style="display:none" onclick="nextStep()">Continue</button>
+    <button class="btn-primary" id="btn-continue" style="display:none" onclick="nextStep()"></button>
   </div>
   <div class="progress-area">
     <div class="progress-bar-bg"><div class="progress-bar-fill" id="progress-fill"></div></div>
@@ -344,477 +349,1719 @@
   <div class="summary-score" id="summary-score"></div>
   <div class="summary-breakdown" id="summary-breakdown"></div>
   <div class="takeaway-box">
-    <div class="takeaway-label">Key Takeaway</div>
+    <div class="takeaway-label" id="summary-takeaway-label"></div>
     <p id="summary-takeaway"></p>
   </div>
-  <button class="btn-primary" id="btn-next-round" onclick="nextRound()">Next Round</button>
+  <button class="btn-primary" id="btn-next-round" onclick="nextRound()"></button>
 </div>
 
 <!-- Game Complete -->
 <div id="screen-complete" class="screen">
-  <h2>Game Complete!</h2>
+  <h2 id="complete-heading"></h2>
   <div class="final-score" id="final-score"></div>
   <div class="final-title" id="final-title"></div>
   <p style="color:var(--text-dim);max-width:480px;line-height:1.6" id="final-desc"></p>
   <div class="concepts-grid" id="concepts-grid"></div>
   <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
-    <button class="btn-primary" onclick="location.reload()">Play Again</button>
-    <button class="btn-secondary" onclick="shareScore()">Copy Score</button>
+    <button class="btn-primary" id="btn-play-again" onclick="location.reload()"></button>
+    <button class="btn-secondary" id="btn-share" onclick="shareScore()"></button>
   </div>
 </div>
 
 <script>
-// ==================== GAME DATA ====================
-const GAME_DATA = {
-  rounds: [
-    {
-      title: "The Obvious Next Word",
-      description: "Some predictions are nearly certain. When context leaves only one reasonable option, the model assigns almost all probability to a single token.",
-      concept: "High-confidence predictions",
-      takeaway: "When context is highly constraining, an LLM becomes very confident. Almost all probability mass lands on a single token. These are the 'easy' predictions.",
-      sentences: [
+// ==================== UI TRANSLATIONS ====================
+const UI = {
+  en: {
+    titleHeading: 'Guess the<br><span>Next Token</span>',
+    titleTokens: ['The','cat','sat','???'],
+    subtitle: 'Large Language Models generate text by predicting one token at a time. Step into the role of an LLM and see if you can guess what comes next. No AI knowledge required!',
+    start: 'Start Playing',
+    begin: 'Begin',
+    continue_: 'Continue',
+    nextRound: 'Next Round',
+    seeResults: 'See Results',
+    howItWorks: 'How it works',
+    keyTakeaway: 'Key Takeaway',
+    roundN: (n,t) => `Round ${n} of ${t}`,
+    roundComplete: n => `Round ${n} Complete`,
+    topPredictions: (c,t,s) => `${c}/${t} top predictions \u00b7 Total: ${s} points`,
+    stepN: (n,t) => `Step ${n} of ${t}`,
+    points: (p) => `+${p} points`,
+    streakBonus: '(1.5x streak bonus!)',
+    gameComplete: 'Game Complete!',
+    playAgain: 'Play Again',
+    copyScore: 'Copy Score',
+    copied: 'Copied!',
+    shareText: (s,t) => `Guess the Next Token \ud83c\udfaf\nI scored ${s} points \u2014 "${t}"\nLearn how LLMs work by playing!`,
+    titles: ['Random Guesser','Pattern Spotter','Context Reader','Token Whisperer','Honorary LLM'],
+    titleDescs: [
+      "Predicting tokens is hard! But now you know how LLMs work: they play this exact guessing game, billions of times, using statistics from massive amounts of text.",
+      "You're starting to see the patterns. Remember: LLMs don't 'understand' \u2014 they calculate the most likely next token from patterns in training data.",
+      "You've got a solid grasp of how predictions work. The key insight: it's all about probability distributions shaped by context.",
+      "Excellent pattern recognition. You clearly understand how LLMs use context to narrow down predictions.",
+      "You predicted tokens like a language model! You've developed strong intuition for how context shapes predictions."
+    ],
+    concepts: [
+      ['Next-Token Prediction', 'LLMs generate text one token at a time, picking the most probable next piece.'],
+      ['Probability Distributions', 'Each prediction is a spread of probabilities across all possible tokens.'],
+      ['Subword Tokenization', 'Text is split into tokens \u2014 which can be words, punctuation, or word fragments.'],
+      ['Context Matters', 'Earlier tokens shape all future predictions through the attention mechanism.'],
+      ['Training Patterns', 'The model learned patterns from text, including clich\u00e9s, facts, and biases.'],
+      ['Temperature', 'Low = predictable text, high = creative/surprising text from lower-probability tokens.'],
+    ]
+  },
+  de: {
+    titleHeading: 'Errate das<br><span>n\u00e4chste Token</span>',
+    titleTokens: ['Die','Katze','sa\u00df','???'],
+    subtitle: 'Gro\u00dfe Sprachmodelle erzeugen Text, indem sie ein Token nach dem anderen vorhersagen. Schl\u00fcpfe in die Rolle eines LLM und versuche zu erraten, was als N\u00e4chstes kommt. Kein KI-Wissen n\u00f6tig!',
+    start: 'Spiel starten',
+    begin: 'Los geht\u2019s',
+    continue_: 'Weiter',
+    nextRound: 'N\u00e4chste Runde',
+    seeResults: 'Ergebnis anzeigen',
+    howItWorks: 'So funktioniert\u2019s',
+    keyTakeaway: 'Wichtigste Erkenntnis',
+    roundN: (n,t) => `Runde ${n} von ${t}`,
+    roundComplete: n => `Runde ${n} abgeschlossen`,
+    topPredictions: (c,t,s) => `${c}/${t} Top-Vorhersagen \u00b7 Gesamt: ${s} Punkte`,
+    stepN: (n,t) => `Schritt ${n} von ${t}`,
+    points: (p) => `+${p} Punkte`,
+    streakBonus: '(1,5x Serie-Bonus!)',
+    gameComplete: 'Spiel abgeschlossen!',
+    playAgain: 'Nochmal spielen',
+    copyScore: 'Ergebnis kopieren',
+    copied: 'Kopiert!',
+    shareText: (s,t) => `Errate das n\u00e4chste Token \ud83c\udfaf\nIch habe ${s} Punkte erzielt \u2014 \u201e${t}\u201c\nLerne spielerisch, wie LLMs funktionieren!`,
+    titles: ['Zuf\u00e4lliger Rater','Mustererkenner','Kontextleser','Token-Fl\u00fcsterer','Ehren-LLM'],
+    titleDescs: [
+      "Token vorherzusagen ist schwer! Aber jetzt wei\u00dft du, wie LLMs funktionieren: Sie spielen genau dieses Ratespiel, milliardenfach, mit Statistiken aus riesigen Textmengen.",
+      "Du beginnst, die Muster zu erkennen. Denk daran: LLMs \u201everstehen\u201c nicht \u2014 sie berechnen das wahrscheinlichste n\u00e4chste Token aus Mustern in Trainingsdaten.",
+      "Du hast ein solides Verst\u00e4ndnis davon, wie Vorhersagen funktionieren. Die wichtigste Erkenntnis: Alles dreht sich um Wahrscheinlichkeitsverteilungen, die vom Kontext geformt werden.",
+      "Hervorragende Mustererkennung. Du verstehst klar, wie LLMs den Kontext nutzen, um Vorhersagen einzugrenzen.",
+      "Du hast Token wie ein Sprachmodell vorhergesagt! Du hast ein starkes Gesp\u00fcr daf\u00fcr entwickelt, wie der Kontext Vorhersagen formt."
+    ],
+    concepts: [
+      ['N\u00e4chstes-Token-Vorhersage', 'LLMs erzeugen Text Token f\u00fcr Token und w\u00e4hlen das wahrscheinlichste St\u00fcck.'],
+      ['Wahrscheinlichkeitsverteilung', 'Jede Vorhersage ist eine Verteilung von Wahrscheinlichkeiten \u00fcber alle m\u00f6glichen Token.'],
+      ['Subwort-Tokenisierung', 'Text wird in Token zerlegt \u2014 das k\u00f6nnen W\u00f6rter, Satzzeichen oder Wortteile sein.'],
+      ['Kontext ist alles', 'Fr\u00fchere Token formen alle zuk\u00fcnftigen Vorhersagen durch den Aufmerksamkeitsmechanismus.'],
+      ['Trainingsmuster', 'Das Modell hat Muster aus Text gelernt, einschlie\u00dflich Klischees, Fakten und Vorurteile.'],
+      ['Temperatur', 'Niedrig = vorhersagbarer Text, hoch = kreativer/\u00fcberraschender Text aus weniger wahrscheinlichen Token.'],
+    ]
+  },
+  fr: {
+    titleHeading: 'Devinez le<br><span>prochain token</span>',
+    titleTokens: ['Le','chat','est','???'],
+    subtitle: 'Les grands mod\u00e8les de langage g\u00e9n\u00e8rent du texte en pr\u00e9disant un token \u00e0 la fois. Mettez-vous dans la peau d\u2019un LLM et devinez ce qui vient ensuite. Aucune connaissance en IA requise\u00a0!',
+    start: 'Commencer',
+    begin: 'C\u2019est parti',
+    continue_: 'Continuer',
+    nextRound: 'Manche suivante',
+    seeResults: 'Voir les r\u00e9sultats',
+    howItWorks: 'Comment \u00e7a marche',
+    keyTakeaway: 'Point cl\u00e9',
+    roundN: (n,t) => `Manche ${n} sur ${t}`,
+    roundComplete: n => `Manche ${n} termin\u00e9e`,
+    topPredictions: (c,t,s) => `${c}/${t} meilleures pr\u00e9dictions \u00b7 Total\u00a0: ${s} points`,
+    stepN: (n,t) => `\u00c9tape ${n} sur ${t}`,
+    points: (p) => `+${p} points`,
+    streakBonus: '(bonus s\u00e9rie \u00d71,5\u00a0!)',
+    gameComplete: 'Partie termin\u00e9e\u00a0!',
+    playAgain: 'Rejouer',
+    copyScore: 'Copier le score',
+    copied: 'Copi\u00e9\u00a0!',
+    shareText: (s,t) => `Devinez le prochain token \ud83c\udfaf\nJ\u2019ai obtenu ${s} points \u2014 \u00ab\u00a0${t}\u00a0\u00bb\nD\u00e9couvrez comment fonctionnent les LLM en jouant\u00a0!`,
+    titles: ['Devineur al\u00e9atoire','Rep\u00e9reur de motifs','Lecteur de contexte','Chuchoteur de tokens','LLM honoraire'],
+    titleDescs: [
+      "Pr\u00e9dire les tokens, c\u2019est dur\u00a0! Mais maintenant vous savez comment fonctionnent les LLM\u00a0: ils jouent exactement \u00e0 ce jeu de devinette, des milliards de fois, en utilisant des statistiques issues de quantit\u00e9s massives de texte.",
+      "Vous commencez \u00e0 rep\u00e9rer les motifs. Rappel\u00a0: les LLM ne \u00ab\u00a0comprennent\u00a0\u00bb pas \u2014 ils calculent le token suivant le plus probable \u00e0 partir de motifs dans les donn\u00e9es d\u2019entra\u00eenement.",
+      "Vous avez une bonne compr\u00e9hension du fonctionnement des pr\u00e9dictions. L\u2019id\u00e9e cl\u00e9\u00a0: tout repose sur des distributions de probabilit\u00e9s fa\u00e7onn\u00e9es par le contexte.",
+      "Excellente reconnaissance de motifs. Vous comprenez clairement comment les LLM utilisent le contexte pour affiner leurs pr\u00e9dictions.",
+      "Vous avez pr\u00e9dit les tokens comme un mod\u00e8le de langage\u00a0! Vous avez d\u00e9velopp\u00e9 une forte intuition pour la fa\u00e7on dont le contexte fa\u00e7onne les pr\u00e9dictions."
+    ],
+    concepts: [
+      ['Pr\u00e9diction du prochain token', 'Les LLM g\u00e9n\u00e8rent du texte un token \u00e0 la fois, en choisissant le plus probable.'],
+      ['Distributions de probabilit\u00e9s', 'Chaque pr\u00e9diction est une r\u00e9partition de probabilit\u00e9s sur tous les tokens possibles.'],
+      ['Tokenisation en sous-mots', 'Le texte est d\u00e9coup\u00e9 en tokens \u2014 mots, ponctuations ou fragments de mots.'],
+      ['Le contexte est essentiel', 'Les tokens pr\u00e9c\u00e9dents fa\u00e7onnent toutes les pr\u00e9dictions futures via le m\u00e9canisme d\u2019attention.'],
+      ['Motifs d\u2019entra\u00eenement', 'Le mod\u00e8le a appris des motifs \u00e0 partir de textes, y compris des clich\u00e9s, des faits et des biais.'],
+      ['Temp\u00e9rature', 'Basse = texte pr\u00e9visible, haute = texte cr\u00e9atif/surprenant \u00e0 partir de tokens moins probables.'],
+    ]
+  },
+  it: {
+    titleHeading: 'Indovina il<br><span>prossimo token</span>',
+    titleTokens: ['Il','gatto','si','???'],
+    subtitle: 'I grandi modelli linguistici generano testo prevedendo un token alla volta. Mettiti nei panni di un LLM e prova a indovinare cosa viene dopo. Nessuna conoscenza di IA richiesta!',
+    start: 'Inizia a giocare',
+    begin: 'Via!',
+    continue_: 'Continua',
+    nextRound: 'Prossimo round',
+    seeResults: 'Vedi risultati',
+    howItWorks: 'Come funziona',
+    keyTakeaway: 'Concetto chiave',
+    roundN: (n,t) => `Round ${n} di ${t}`,
+    roundComplete: n => `Round ${n} completato`,
+    topPredictions: (c,t,s) => `${c}/${t} previsioni migliori \u00b7 Totale: ${s} punti`,
+    stepN: (n,t) => `Passo ${n} di ${t}`,
+    points: (p) => `+${p} punti`,
+    streakBonus: '(bonus serie \u00d71,5!)',
+    gameComplete: 'Partita completata!',
+    playAgain: 'Gioca ancora',
+    copyScore: 'Copia punteggio',
+    copied: 'Copiato!',
+    shareText: (s,t) => `Indovina il prossimo token \ud83c\udfaf\nHo ottenuto ${s} punti \u2014 "${t}"\nScopri come funzionano gli LLM giocando!`,
+    titles: ['Indovinatore casuale','Scopritore di schemi','Lettore di contesto','Sussurratore di token','LLM onorario'],
+    titleDescs: [
+      "Prevedere i token \u00e8 difficile! Ma ora sai come funzionano gli LLM: giocano esattamente a questo gioco di previsione, miliardi di volte, usando statistiche da enormi quantit\u00e0 di testo.",
+      "Stai iniziando a vedere gli schemi. Ricorda: gli LLM non 'capiscono' \u2014 calcolano il token successivo pi\u00f9 probabile dai pattern nei dati di addestramento.",
+      "Hai una buona comprensione di come funzionano le previsioni. L'intuizione chiave: tutto ruota attorno alle distribuzioni di probabilit\u00e0 plasmate dal contesto.",
+      "Eccellente riconoscimento di pattern. Capisci chiaramente come gli LLM usano il contesto per restringere le previsioni.",
+      "Hai previsto i token come un modello linguistico! Hai sviluppato un forte intuito per come il contesto plasma le previsioni."
+    ],
+    concepts: [
+      ['Previsione del prossimo token', 'Gli LLM generano testo un token alla volta, scegliendo il pi\u00f9 probabile.'],
+      ['Distribuzioni di probabilit\u00e0', 'Ogni previsione \u00e8 una distribuzione di probabilit\u00e0 su tutti i token possibili.'],
+      ['Tokenizzazione in sotto-parole', 'Il testo viene diviso in token \u2014 parole, punteggiatura o frammenti di parole.'],
+      ['Il contesto \u00e8 tutto', 'I token precedenti plasmano tutte le previsioni future tramite il meccanismo di attenzione.'],
+      ['Pattern di addestramento', 'Il modello ha imparato pattern dal testo, inclusi clich\u00e9, fatti e bias.'],
+      ['Temperatura', 'Bassa = testo prevedibile, alta = testo creativo/sorprendente da token meno probabili.'],
+    ]
+  }
+};
+
+// ==================== GAME DATA PER LANGUAGE ====================
+const GAME_DATA_ALL = {
+en: { rounds: [
+  {
+    title: "The Obvious Next Word",
+    description: "Some predictions are nearly certain. When context leaves only one reasonable option, the model assigns almost all probability to a single token.",
+    concept: "High-confidence predictions",
+    takeaway: "When context is highly constraining, an LLM becomes very confident. Almost all probability mass lands on a single token. These are the 'easy' predictions.",
+    sentences: [
+      {
+        tokens: ["The", " United", " States", " of", " America"],
+        predictions: [{
+          afterIndex: 3,
+          options: [
+            { token: " America", prob: 0.97 },
+            { token: " the", prob: 0.01 },
+            { token: " Am", prob: 0.008 },
+            { token: " A", prob: 0.005 },
+            { token: " North", prob: 0.003 }
+          ],
+          explanation: "This is almost certain. 'The United States of' has essentially one completion in English. The model assigns 97% probability to 'America.' This is a high-confidence prediction."
+        }]
+      },
+      {
+        tokens: ["Once", " upon", " a", " time", ",", " there"],
+        predictions: [{
+          afterIndex: 2,
+          options: [
+            { token: " time", prob: 0.92 },
+            { token: " day", prob: 0.03 },
+            { token: " hill", prob: 0.01 },
+            { token: " place", prob: 0.01 },
+            { token: " girl", prob: 0.008 }
+          ],
+          explanation: "'Once upon a...' is one of the most recognizable phrases in English. The model has seen this pattern thousands of times in its training data, making 'time' an overwhelming favorite."
+        },{
+          afterIndex: 4,
+          options: [
+            { token: " there", prob: 0.35 },
+            { token: " in", prob: 0.18 },
+            { token: " a", prob: 0.12 },
+            { token: " the", prob: 0.08 },
+            { token: " long", prob: 0.05 }
+          ],
+          explanation: "After the comma, things open up. 'there' is the favorite (the classic 'there was/lived'), but 'in a land far away' is also common. Notice how the probabilities are more spread out now."
+        }]
+      },
+      {
+        tokens: ["She", " opened", " the", " door", " and", " walked", " in"],
+        predictions: [{
+          afterIndex: 5,
+          options: [
+            { token: " in", prob: 0.31 },
+            { token: " out", prob: 0.24 },
+            { token: " into", prob: 0.15 },
+            { token: " away", prob: 0.10 },
+            { token: " over", prob: 0.06 }
+          ],
+          explanation: "'in' and 'out' are both very reasonable after 'opened the door and walked.' The model gives them similar probabilities. This is an example of genuine ambiguity \u2014 there's no single right answer."
+        }]
+      }
+    ]
+  },
+  {
+    title: "When the Model Isn't Sure",
+    description: "Sometimes many tokens are equally plausible. The probability gets spread thin across many options. This is where 'randomness' in AI text comes from.",
+    concept: "Flat probability distributions",
+    takeaway: "When probabilities are spread evenly, the model is genuinely uncertain. Small random choices here lead to wildly different outputs. This is why you get different answers each time you ask an LLM the same question.",
+    sentences: [
+      {
+        tokens: ["For", " dinner", " tonight", " I", "'m", " making"],
+        predictions: [{
+          afterIndex: 5,
+          options: [
+            { token: " a", prob: 0.14 },
+            { token: " chicken", prob: 0.08 },
+            { token: " pasta", prob: 0.07 },
+            { token: " some", prob: 0.06 },
+            { token: " steak", prob: 0.04 }
+          ],
+          explanation: "So many foods could come next! The model spreads probability across dozens of options. No single token gets more than 14%. This flat distribution is the opposite of 'United States of America.'"
+        }]
+      },
+      {
+        tokens: ["The", " meaning", " of", " life", " is"],
+        predictions: [{
+          afterIndex: 4,
+          options: [
+            { token: " to", prob: 0.14 },
+            { token: " a", prob: 0.11 },
+            { token: " not", prob: 0.07 },
+            { token: " the", prob: 0.06 },
+            { token: " something", prob: 0.04 }
+          ],
+          explanation: "Philosophy is hard for humans AND models. The model hedges its bets across many possible continuations. 'to find meaning,' 'a mystery,' 'not something you find' \u2014 all are plausible, so none gets high probability."
+        }]
+      },
+      {
+        tokens: ["The", " weather", " today", " is", " really"],
+        predictions: [{
+          afterIndex: 4,
+          options: [
+            { token: " good", prob: 0.09 },
+            { token: " nice", prob: 0.08 },
+            { token: " bad", prob: 0.07 },
+            { token: " hot", prob: 0.06 },
+            { token: " cold", prob: 0.05 }
+          ],
+          explanation: "Weather could be anything! The model has no way to know the actual weather, so it distributes probability almost evenly across positive and negative descriptions. It's not 'thinking' \u2014 it's just reflecting patterns from text."
+        }]
+      }
+    ]
+  },
+  {
+    title: "Tokens Aren't Words",
+    description: "LLMs don't predict words \u2014 they predict tokens. A token might be a whole word, part of a word, a punctuation mark, or even just a space. This is one of the most surprising things about how they work.",
+    concept: "Subword tokenization",
+    takeaway: "LLMs break text into tokens, not words. Punctuation, word fragments, and spaces are all separate tokens. This is why AI sometimes struggles with spelling, counting letters, or handling unusual words.",
+    sentences: [
+      {
+        tokens: ["The", " CEO", " announced", ",", " \"", "We"],
+        predictions: [{
+          afterIndex: 3,
+          options: [
+            { token: " \"", prob: 0.72 },
+            { token: " that", prob: 0.10 },
+            { token: " a", prob: 0.05 },
+            { token: " the", prob: 0.04 },
+            { token: " today", prob: 0.02 }
+          ],
+          explanation: "Surprise! The next token is a quotation mark, not a word. After 'announced,' the model strongly expects a direct quote. Punctuation marks are tokens too \u2014 the model predicts them just like it predicts words."
+        }]
+      },
+      {
+        tokens: ["She", " works", " at", " Micro", "soft"],
+        predictions: [{
+          afterIndex: 3,
+          options: [
+            { token: "soft", prob: 0.95 },
+            { token: "scope", prob: 0.01 },
+            { token: "chip", prob: 0.005 },
+            { token: "wave", prob: 0.004 },
+            { token: "phone", prob: 0.003 }
+          ],
+          explanation: "'Micro' isn't a complete word here \u2014 it's a subword token. The model tokenized 'Microsoft' as two pieces: 'Micro' + 'soft'. It knows with 95% confidence that 'soft' completes this token. This is called subword tokenization (BPE)."
+        }]
+      },
+      {
+        tokens: ["I", " have", " 3", ",", "000", " reasons"],
+        predictions: [{
+          afterIndex: 3,
+          options: [
+            { token: "000", prob: 0.48 },
+            { token: "500", prob: 0.12 },
+            { token: "00", prob: 0.08 },
+            { token: "0", prob: 0.05 },
+            { token: "200", prob: 0.04 }
+          ],
+          explanation: "Numbers get tokenized in surprising ways. '3,000' becomes three tokens: '3' + ',' + '000'. The model has to predict each digit group separately. This is why LLMs sometimes struggle with math \u2014 they process numbers as text fragments, not quantities."
+        }]
+      }
+    ]
+  },
+  {
+    title: "Context Is Everything",
+    description: "The same word can lead to completely different predictions depending on what came before it. LLMs use the entire preceding context to make their guess.",
+    concept: "Context-dependent predictions",
+    takeaway: "Every token in the context matters. The same word produces completely different probability distributions depending on surrounding words. This is the power of the 'attention' mechanism \u2014 the model considers the full context for every prediction.",
+    sentences: [
+      {
+        tokens: ["The", " bank", " of", " the", " river", " was", " steep"],
+        predictions: [{
+          afterIndex: 5,
+          options: [
+            { token: " steep", prob: 0.14 },
+            { token: " covered", prob: 0.12 },
+            { token: " muddy", prob: 0.10 },
+            { token: " dry", prob: 0.08 },
+            { token: " lined", prob: 0.07 }
+          ],
+          explanation: "After 'The bank of the river was,' the model predicts terrain descriptions. 'river' earlier in the sentence told the model we're talking about a riverbank, not a financial bank. Context resolved the ambiguity."
+        }]
+      },
+      {
+        tokens: ["The", " bank", " approved", " the", " loan", " application"],
+        predictions: [{
+          afterIndex: 4,
+          options: [
+            { token: " application", prob: 0.22 },
+            { token: ".", prob: 0.18 },
+            { token: " request", prob: 0.12 },
+            { token: " for", prob: 0.10 },
+            { token: ",", prob: 0.08 }
+          ],
+          explanation: "Same word 'bank,' totally different predictions. 'approved' told the model we're in financial territory. Notice the period is a likely token \u2014 the sentence could naturally end here. Same starting word, different world."
+        }]
+      },
+      {
+        tokens: ["I", " love", " Python", " because", " it", "'s", " so", " easy"],
+        predictions: [{
+          afterIndex: 6,
+          options: [
+            { token: " easy", prob: 0.18 },
+            { token: " simple", prob: 0.14 },
+            { token: " readable", prob: 0.10 },
+            { token: " versatile", prob: 0.08 },
+            { token: " elegant", prob: 0.07 }
+          ],
+          explanation: "The model knows 'Python' in this context means the programming language (because of 'love' and 'because it's so'). If the sentence started with 'I saw a Python,' predictions would be about snakes instead. Context shapes everything."
+        }]
+      }
+    ]
+  },
+  {
+    title: "Patterns & Clich\u00e9s",
+    description: "LLMs learn from vast amounts of text. They pick up on common phrases, clich\u00e9s, and cultural patterns. Sometimes this means they're very predictable \u2014 and sometimes it reveals surprising biases.",
+    concept: "Training data patterns",
+    takeaway: "LLMs don't 'know' facts \u2014 they've learned statistical patterns from text. Common phrases get high confidence. Factual knowledge is encoded as probability, not understanding. And the patterns in training data, including human biases, show up in the model's predictions.",
+    sentences: [
+      {
+        tokens: ["It", " was", " a", " dark", " and", " stormy", " night"],
+        predictions: [{
+          afterIndex: 5,
+          options: [
+            { token: " night", prob: 0.94 },
+            { token: " day", prob: 0.02 },
+            { token: " evening", prob: 0.01 },
+            { token: " sea", prob: 0.005 },
+            { token: " winter", prob: 0.003 }
+          ],
+          explanation: "The most famous opening line clich\u00e9 in English! The model has seen this phrase so many times that it's 94% confident. Clich\u00e9s and famous quotes create extremely high-confidence predictions because they appear so often in training data."
+        }]
+      },
+      {
+        tokens: ["The", " capital", " of", " Australia", " is", " Canberra"],
+        predictions: [{
+          afterIndex: 4,
+          options: [
+            { token: " Canberra", prob: 0.52 },
+            { token: " Sydney", prob: 0.25 },
+            { token: " Melbourne", prob: 0.08 },
+            { token: " a", prob: 0.04 },
+            { token: " Can", prob: 0.03 }
+          ],
+          explanation: "The model 'knows' the answer is Canberra (52%), but Sydney gets 25%! Why? Because many people incorrectly think Sydney is the capital, and that misconception appears in training data too. The model's knowledge is a mirror of human text \u2014 errors and all."
+        }]
+      },
+      {
+        tokens: ["To", " be", " or", " not", " to", " be"],
+        predictions: [{
+          afterIndex: 4,
+          options: [
+            { token: " be", prob: 0.96 },
+            { token: " mention", prob: 0.008 },
+            { token: " worry", prob: 0.005 },
+            { token: " say", prob: 0.004 },
+            { token: " do", prob: 0.003 }
+          ],
+          explanation: "Shakespeare is so deeply embedded in English-language text that this is nearly as certain as 'United States of America.' Famous quotes act like fixed phrases in the model's learned patterns."
+        }]
+      }
+    ]
+  },
+  {
+    title: "The Surprise Factor",
+    description: "The most interesting text uses unexpected words. Creative writing, humor, and plot twists all come from picking lower-probability tokens. This is where the 'temperature' setting matters.",
+    concept: "Low-probability tokens & temperature",
+    takeaway: "Creativity in AI-generated text comes from sampling lower-probability tokens. The 'temperature' setting controls this: low temperature picks safe, predictable tokens; high temperature picks surprising ones. It's the dial between boring-but-safe and creative-but-risky.",
+    sentences: [
+      {
+        tokens: ["The", " old", " man", " walked", " into", " the", " bar", " and", " ordered", " a", " glass", " of", " milk"],
+        predictions: [{
+          afterIndex: 9,
+          options: [
+            { token: " beer", prob: 0.22 },
+            { token: " drink", prob: 0.18 },
+            { token: " glass", prob: 0.12 },
+            { token: " whiskey", prob: 0.10 },
+            { token: " coffee", prob: 0.04 }
+          ],
+          explanation: "The model predicts 'beer' or 'drink' because that's the most common pattern. But what if the actual text says 'milk'? That would only have ~2% probability. Surprising word choices make writing interesting \u2014 and they come from picking low-probability tokens."
+        },{
+          afterIndex: 11,
+          options: [
+            { token: " milk", prob: 0.04 },
+            { token: " water", prob: 0.18 },
+            { token: " wine", prob: 0.25 },
+            { token: " whiskey", prob: 0.15 },
+            { token: " juice", prob: 0.08 }
+          ],
+          explanation: "After 'glass of,' wine and water dominate. 'milk' is only 4% \u2014 but that's what makes it funny or surprising in a bar scene. High temperature would make this pick more likely. This is the creative tradeoff: predictable vs. interesting."
+        }]
+      },
+      {
+        tokens: ["I", " told", " my", " computer", " I", " needed", " a", " break", " and", " it", " froze"],
+        predictions: [{
+          afterIndex: 9,
+          options: [
+            { token: " said", prob: 0.15 },
+            { token: " crashed", prob: 0.08 },
+            { token: " froze", prob: 0.05 },
+            { token: " started", prob: 0.12 },
+            { token: " gave", prob: 0.09 }
+          ],
+          explanation: "'froze' is the punchline \u2014 it works both as a computer malfunction and a reaction to the word 'break.' At only 5% probability, the model wouldn't usually pick this. Humor often lives in these low-probability completions that make unexpected connections."
+        }]
+      }
+    ]
+  },
+  {
+    title: "The Full Chain",
+    description: "Now let's see the full picture. An LLM generates text by repeating this prediction process hundreds of times. Each token you pick changes what comes next. Let's follow a longer chain.",
+    concept: "Autoregressive generation",
+    takeaway: "Text generation is just this guessing game played thousands of times. Each token choice cascades forward, shaping all future predictions. That's all an LLM does: predict the next token, append it, and repeat. The magic is that this simple process, at scale, produces remarkably coherent text.",
+    sentences: [{
+      tokens: ["In", " a", " hole", " in", " the", " ground", " there", " lived", " a", " hobbit"],
+      predictions: [
         {
-          tokens: ["The", " United", " States", " of", " America"],
-          predictions: [
-            {
-              afterIndex: 3,
-              options: [
-                { token: " America", prob: 0.97 },
-                { token: " the", prob: 0.01 },
-                { token: " Am", prob: 0.008 },
-                { token: " A", prob: 0.005 },
-                { token: " North", prob: 0.003 }
-              ],
-              explanation: "This is almost certain. 'The United States of' has essentially one completion in English. The model assigns 97% probability to 'America.' This is a high-confidence prediction."
-            }
-          ]
+          afterIndex: 1,
+          options: [
+            { token: " world", prob: 0.12 },
+            { token: " small", prob: 0.08 },
+            { token: " hole", prob: 0.06 },
+            { token: " land", prob: 0.09 },
+            { token: " recent", prob: 0.07 }
+          ],
+          explanation: "After just 'In a' \u2014 almost anything could follow. The model spreads probability across many options. We're at maximum uncertainty."
         },
         {
-          tokens: ["Once", " upon", " a", " time", ",", " there"],
-          predictions: [
-            {
-              afterIndex: 2,
-              options: [
-                { token: " time", prob: 0.92 },
-                { token: " day", prob: 0.03 },
-                { token: " hill", prob: 0.01 },
-                { token: " place", prob: 0.01 },
-                { token: " girl", prob: 0.008 }
-              ],
-              explanation: "'Once upon a...' is one of the most recognizable phrases in English. The model has seen this pattern thousands of times in its training data, making 'time' an overwhelming favorite."
-            },
-            {
-              afterIndex: 4,
-              options: [
-                { token: " there", prob: 0.35 },
-                { token: " in", prob: 0.18 },
-                { token: " a", prob: 0.12 },
-                { token: " the", prob: 0.08 },
-                { token: " long", prob: 0.05 }
-              ],
-              explanation: "After the comma, things open up. 'there' is the favorite (the classic 'there was/lived'), but 'in a land far away' is also common. Notice how the probabilities are more spread out now."
-            }
-          ]
+          afterIndex: 5,
+          options: [
+            { token: " there", prob: 0.42 },
+            { token: ",", prob: 0.15 },
+            { token: " lived", prob: 0.10 },
+            { token: " that", prob: 0.06 },
+            { token: " a", prob: 0.04 }
+          ],
+          explanation: "Now with more context, 'there' becomes the clear favorite. The phrase 'in the ground there lived' is a recognizable literary pattern. Each new token narrows the possibilities."
         },
         {
-          tokens: ["She", " opened", " the", " door", " and", " walked", " in"],
-          predictions: [
-            {
-              afterIndex: 5,
-              options: [
-                { token: " in", prob: 0.31 },
-                { token: " out", prob: 0.24 },
-                { token: " into", prob: 0.15 },
-                { token: " away", prob: 0.10 },
-                { token: " over", prob: 0.06 }
-              ],
-              explanation: "'in' and 'out' are both very reasonable after 'opened the door and walked.' The model gives them similar probabilities. This is an example of genuine ambiguity \u2014 there's no single right answer."
-            }
-          ]
+          afterIndex: 7,
+          options: [
+            { token: " a", prob: 0.65 },
+            { token: " an", prob: 0.10 },
+            { token: " the", prob: 0.05 },
+            { token: " no", prob: 0.03 },
+            { token: " something", prob: 0.02 }
+          ],
+          explanation: "After 'there lived,' the model strongly expects an article. 'a' dominates at 65%. The grammatical pattern is very constraining here."
+        },
+        {
+          afterIndex: 8,
+          options: [
+            { token: " hob", prob: 0.35 },
+            { token: " man", prob: 0.08 },
+            { token: " family", prob: 0.06 },
+            { token: " young", prob: 0.05 },
+            { token: " small", prob: 0.04 }
+          ],
+          explanation: "If you recognized Tolkien, you'd pick 'hob' (the start of 'hobbit'). The model knows this famous opening too \u2014 'hob' is the top prediction. Notice it's a subword token: 'hobbit' = 'hob' + 'bit'. Literature and tokenization in one prediction!"
         }
       ]
-    },
-    {
-      title: "When the Model Isn't Sure",
-      description: "Sometimes many tokens are equally plausible. The probability gets spread thin across many options. This is where 'randomness' in AI text comes from.",
-      concept: "Flat probability distributions",
-      takeaway: "When probabilities are spread evenly, the model is genuinely uncertain. Small random choices here lead to wildly different outputs. This is why you get different answers each time you ask an LLM the same question.",
-      sentences: [
+    }]
+  }
+]},
+de: { rounds: [
+  {
+    title: "Das offensichtliche n\u00e4chste Wort",
+    description: "Manche Vorhersagen sind fast sicher. Wenn der Kontext nur eine vern\u00fcnftige Option l\u00e4sst, weist das Modell fast die gesamte Wahrscheinlichkeit einem einzigen Token zu.",
+    concept: "Hochkonfidente Vorhersagen",
+    takeaway: "Wenn der Kontext stark einschr\u00e4nkt, wird ein LLM sehr sicher. Fast die gesamte Wahrscheinlichkeitsmasse liegt auf einem einzigen Token. Das sind die 'einfachen' Vorhersagen.",
+    sentences: [
+      {
+        tokens: ["Die", " Bundesrepublik", " Deutschland"],
+        predictions: [{
+          afterIndex: 1,
+          options: [
+            { token: " Deutschland", prob: 0.82 },
+            { token: " ist", prob: 0.04 },
+            { token: " hat", prob: 0.03 },
+            { token: " wurde", prob: 0.02 },
+            { token: " besteht", prob: 0.01 }
+          ],
+          explanation: "'Die Bundesrepublik' hat im Deutschen fast nur eine Fortsetzung: 'Deutschland'. Das Modell weist 82% Wahrscheinlichkeit zu. Das ist eine hochkonfidente Vorhersage."
+        }]
+      },
+      {
+        tokens: ["Es", " war", " einmal", " ein", " kleiner"],
+        predictions: [{
+          afterIndex: 2,
+          options: [
+            { token: " ein", prob: 0.38 },
+            { token: " eine", prob: 0.30 },
+            { token: " vor", prob: 0.08 },
+            { token: " in", prob: 0.05 },
+            { token: ",", prob: 0.04 }
+          ],
+          explanation: "'Es war einmal...' ist der klassische M\u00e4rchenanfang im Deutschen. Das Modell erwartet einen Artikel \u2014 'ein' oder 'eine' teilen sich die Wahrscheinlichkeit, je nach Geschlecht des folgenden Substantivs."
+        },{
+          afterIndex: 3,
+          options: [
+            { token: " kleiner", prob: 0.10 },
+            { token: " K\u00f6nig", prob: 0.08 },
+            { token: " Mann", prob: 0.06 },
+            { token: " junger", prob: 0.05 },
+            { token: " M\u00e4dchen", prob: 0.04 }
+          ],
+          explanation: "Nach 'Es war einmal ein' verteilt sich die Wahrscheinlichkeit auf viele M\u00e4rchenfiguren. Kein einzelnes Wort dominiert \u2014 das Modell ist unsicher, welche Geschichte erz\u00e4hlt wird."
+        }]
+      },
+      {
+        tokens: ["Sie", " \u00f6ffnete", " die", " T\u00fcr", " und", " trat", " ein"],
+        predictions: [{
+          afterIndex: 5,
+          options: [
+            { token: " ein", prob: 0.30 },
+            { token: " herein", prob: 0.18 },
+            { token: " hinaus", prob: 0.12 },
+            { token: " zur\u00fcck", prob: 0.08 },
+            { token: " hinein", prob: 0.06 }
+          ],
+          explanation: "'ein' und 'herein' sind beide plausibel nach '\u00f6ffnete die T\u00fcr und trat'. Im Deutschen sind trennbare Verben wie 'eintreten' typisch \u2014 das Modell muss entscheiden, welches Pr\u00e4fix folgt."
+        }]
+      }
+    ]
+  },
+  {
+    title: "Wenn das Modell unsicher ist",
+    description: "Manchmal sind viele Token gleich plausibel. Die Wahrscheinlichkeit verteilt sich d\u00fcnn \u00fcber viele Optionen. Daher kommt die 'Zuf\u00e4lligkeit' in KI-Texten.",
+    concept: "Flache Wahrscheinlichkeitsverteilungen",
+    takeaway: "Wenn die Wahrscheinlichkeiten gleichm\u00e4\u00dfig verteilt sind, ist das Modell wirklich unsicher. Kleine Zufallsentscheidungen f\u00fchren hier zu v\u00f6llig unterschiedlichen Ergebnissen. Deshalb bekommt man bei derselben Frage an ein LLM jedes Mal andere Antworten.",
+    sentences: [
+      {
+        tokens: ["Zum", " Abendessen", " gibt", " es", " heute"],
+        predictions: [{
+          afterIndex: 4,
+          options: [
+            { token: " Pizza", prob: 0.06 },
+            { token: " Pasta", prob: 0.05 },
+            { token: " Kartoffel", prob: 0.04 },
+            { token: " einen", prob: 0.08 },
+            { token: " etwas", prob: 0.05 }
+          ],
+          explanation: "So viele Gerichte k\u00f6nnten folgen! Das Modell verteilt die Wahrscheinlichkeit auf Dutzende Optionen. Kein Token bekommt mehr als 8%. Das ist das Gegenteil der 'Bundesrepublik Deutschland'-Vorhersage."
+        }]
+      },
+      {
+        tokens: ["Der", " Sinn", " des", " Lebens", " ist"],
+        predictions: [{
+          afterIndex: 4,
+          options: [
+            { token: " es", prob: 0.10 },
+            { token: ",", prob: 0.12 },
+            { token: " die", prob: 0.06 },
+            { token: " nicht", prob: 0.05 },
+            { token: " ein", prob: 0.04 }
+          ],
+          explanation: "Philosophie ist schwer \u2014 f\u00fcr Menschen und Modelle. Das Modell verteilt seine Chancen auf viele m\u00f6gliche Fortsetzungen. 'ist es...' oder 'ist, ...' oder 'ist die Liebe' \u2014 alles plausibel."
+        }]
+      },
+      {
+        tokens: ["Das", " Wetter", " heute", " ist", " wirklich"],
+        predictions: [{
+          afterIndex: 4,
+          options: [
+            { token: " sch\u00f6n", prob: 0.11 },
+            { token: " gut", prob: 0.09 },
+            { token: " schlecht", prob: 0.07 },
+            { token: " kalt", prob: 0.06 },
+            { token: " warm", prob: 0.05 }
+          ],
+          explanation: "Das Wetter k\u00f6nnte alles sein! Das Modell kennt das aktuelle Wetter nicht und verteilt die Wahrscheinlichkeit fast gleichm\u00e4\u00dfig. Es 'denkt' nicht \u2014 es spiegelt nur Muster aus Texten wider."
+        }]
+      }
+    ]
+  },
+  {
+    title: "Token sind keine W\u00f6rter",
+    description: "LLMs sagen keine W\u00f6rter vorher \u2014 sie sagen Token vorher. Ein Token kann ein ganzes Wort, ein Wortteil, ein Satzzeichen oder sogar nur ein Leerzeichen sein.",
+    concept: "Subwort-Tokenisierung",
+    takeaway: "LLMs zerlegen Text in Token, nicht in W\u00f6rter. Satzzeichen, Wortteile und Leerzeichen sind alles separate Token. Deshalb haben LLMs manchmal Schwierigkeiten mit Rechtschreibung, Buchstabenz\u00e4hlen oder ungew\u00f6hnlichen W\u00f6rtern.",
+    sentences: [
+      {
+        tokens: ["Der", " Minister", " erkl\u00e4rte", ",", " \"", "Wir"],
+        predictions: [{
+          afterIndex: 3,
+          options: [
+            { token: " \"", prob: 0.65 },
+            { token: " dass", prob: 0.15 },
+            { token: " er", prob: 0.05 },
+            { token: " die", prob: 0.04 },
+            { token: " man", prob: 0.02 }
+          ],
+          explanation: "\u00dcberraschung! Das n\u00e4chste Token ist ein Anf\u00fchrungszeichen. Nach 'erkl\u00e4rte,' erwartet das Modell ein direktes Zitat. Satzzeichen sind Token \u2014 das Modell sagt sie genauso vorher wie W\u00f6rter."
+        }]
+      },
+      {
+        tokens: ["Sie", " arbeitet", " bei", " Volks", "wagen"],
+        predictions: [{
+          afterIndex: 3,
+          options: [
+            { token: "wagen", prob: 0.92 },
+            { token: "bank", prob: 0.03 },
+            { token: "musik", prob: 0.005 },
+            { token: "fest", prob: 0.004 },
+            { token: "mund", prob: 0.003 }
+          ],
+          explanation: "'Volks' ist kein vollst\u00e4ndiges Wort \u2014 es ist ein Subwort-Token. Das Modell hat 'Volkswagen' als 'Volks' + 'wagen' tokenisiert. Mit 92% Sicherheit wird 'wagen' erg\u00e4nzt. Deutsche Komposita werden oft in Teile zerlegt!"
+        }]
+      },
+      {
+        tokens: ["Ich", " habe", " 1", ".", "000", " Euro"],
+        predictions: [{
+          afterIndex: 3,
+          options: [
+            { token: "000", prob: 0.45 },
+            { token: "500", prob: 0.10 },
+            { token: "00", prob: 0.08 },
+            { token: "0", prob: 0.06 },
+            { token: "200", prob: 0.04 }
+          ],
+          explanation: "Zahlen werden \u00fcberraschend tokenisiert. '1.000' wird zu drei Token: '1' + '.' + '000'. Das Modell muss jede Zifferngruppe separat vorhersagen. Deshalb k\u00e4mpfen LLMs manchmal mit Mathematik \u2014 sie verarbeiten Zahlen als Textfragmente, nicht als Mengen."
+        }]
+      }
+    ]
+  },
+  {
+    title: "Kontext ist alles",
+    description: "Dasselbe Wort kann zu v\u00f6llig unterschiedlichen Vorhersagen f\u00fchren, je nachdem, was vorher kam. LLMs nutzen den gesamten vorherigen Kontext.",
+    concept: "Kontextabh\u00e4ngige Vorhersagen",
+    takeaway: "Jedes Token im Kontext z\u00e4hlt. Dasselbe Wort erzeugt v\u00f6llig andere Wahrscheinlichkeitsverteilungen je nach Umgebung. Das ist die Kraft des 'Attention'-Mechanismus \u2014 das Modell betrachtet den gesamten Kontext f\u00fcr jede Vorhersage.",
+    sentences: [
+      {
+        tokens: ["Die", " Bank", " am", " Fluss", " war", " morsch"],
+        predictions: [{
+          afterIndex: 4,
+          options: [
+            { token: " morsch", prob: 0.10 },
+            { token: " nass", prob: 0.12 },
+            { token: " gr\u00fcn", prob: 0.08 },
+            { token: " alt", prob: 0.09 },
+            { token: " leer", prob: 0.07 }
+          ],
+          explanation: "Nach 'Die Bank am Fluss war' sagt das Modell Beschreibungen einer Sitzbank oder eines Ufers vorher. 'Fluss' hat dem Modell gesagt: Es geht um eine Parkbank oder ein Flussufer, nicht um ein Geldinstitut."
+        }]
+      },
+      {
+        tokens: ["Die", " Bank", " genehmigte", " den", " Kredit", "antrag"],
+        predictions: [{
+          afterIndex: 4,
+          options: [
+            { token: "antrag", prob: 0.28 },
+            { token: ".", prob: 0.20 },
+            { token: " sofort", prob: 0.08 },
+            { token: " nicht", prob: 0.07 },
+            { token: ",", prob: 0.06 }
+          ],
+          explanation: "Gleiches Wort 'Bank', v\u00f6llig andere Vorhersagen. 'genehmigte' hat dem Modell verraten, dass wir in der Finanzwelt sind. Gleich am Anfang, verschiedene Welten."
+        }]
+      },
+      {
+        tokens: ["Ich", " liebe", " Python", ",", " weil", " es", " so", " einfach"],
+        predictions: [{
+          afterIndex: 6,
+          options: [
+            { token: " einfach", prob: 0.16 },
+            { token: " flexibel", prob: 0.10 },
+            { token: " vielseitig", prob: 0.08 },
+            { token: " m\u00e4chtig", prob: 0.07 },
+            { token: " lesbar", prob: 0.06 }
+          ],
+          explanation: "Das Modell wei\u00df, dass 'Python' hier die Programmiersprache meint (wegen 'liebe' und 'weil es so'). H\u00e4tte der Satz mit 'Ich sah eine Python' begonnen, w\u00e4ren die Vorhersagen \u00fcber Schlangen. Kontext formt alles."
+        }]
+      }
+    ]
+  },
+  {
+    title: "Muster & Klischees",
+    description: "LLMs lernen aus riesigen Textmengen. Sie erkennen g\u00e4ngige Phrasen, Klischees und kulturelle Muster. Das macht sie manchmal sehr vorhersagbar \u2014 und offenbart \u00fcberraschende Verzerrungen.",
+    concept: "Trainingsmuster",
+    takeaway: "LLMs 'wissen' keine Fakten \u2014 sie haben statistische Muster aus Text gelernt. H\u00e4ufige Phrasen bekommen hohe Konfidenz. Faktenwissen ist als Wahrscheinlichkeit kodiert, nicht als Verst\u00e4ndnis.",
+    sentences: [
+      {
+        tokens: ["Aller", " Anfang", " ist", " schwer"],
+        predictions: [{
+          afterIndex: 2,
+          options: [
+            { token: " schwer", prob: 0.90 },
+            { token: " gut", prob: 0.02 },
+            { token: " leicht", prob: 0.01 },
+            { token: " wichtig", prob: 0.01 },
+            { token: " hart", prob: 0.008 }
+          ],
+          explanation: "Das bekannteste deutsche Sprichwort! Das Modell hat dieses Muster so oft gesehen, dass es 90% sicher ist. Sprichw\u00f6rter und ber\u00fchmte Zitate erzeugen extrem hochkonfidente Vorhersagen."
+        }]
+      },
+      {
+        tokens: ["Die", " Hauptstadt", " der", " Schweiz", " ist", " Bern"],
+        predictions: [{
+          afterIndex: 4,
+          options: [
+            { token: " Bern", prob: 0.50 },
+            { token: " Z\u00fcrich", prob: 0.22 },
+            { token: " Gen", prob: 0.05 },
+            { token: " die", prob: 0.04 },
+            { token: " Basel", prob: 0.03 }
+          ],
+          explanation: "Das Modell 'wei\u00df', dass Bern die Bundesstadt ist (50%), aber Z\u00fcrich bekommt 22%! Warum? Weil Z\u00fcrich die gr\u00f6\u00dfte Stadt ist und viele es f\u00e4lschlich f\u00fcr die Hauptstadt halten. Das Wissen des Modells spiegelt menschliche Texte wider \u2014 Fehler inklusive."
+        }]
+      },
+      {
+        tokens: ["Sein", " oder", " nicht", " sein"],
+        predictions: [{
+          afterIndex: 2,
+          options: [
+            { token: " sein", prob: 0.94 },
+            { token: " nur", prob: 0.01 },
+            { token: " zu", prob: 0.008 },
+            { token: " mehr", prob: 0.005 },
+            { token: " wahr", prob: 0.004 }
+          ],
+          explanation: "Shakespeares 'Hamlet' auf Deutsch! Das Zitat ist so tief in Texten verankert, dass das Modell 94% sicher ist. Ber\u00fchmte Zitate wirken wie feste Wendungen in den gelernten Mustern des Modells."
+        }]
+      }
+    ]
+  },
+  {
+    title: "Der \u00dcberraschungsfaktor",
+    description: "Der interessanteste Text verwendet unerwartete W\u00f6rter. Kreatives Schreiben, Humor und Plottwists kommen von Token mit niedriger Wahrscheinlichkeit. Hier kommt die 'Temperatur'-Einstellung ins Spiel.",
+    concept: "Niedrigwahrscheinliche Token & Temperatur",
+    takeaway: "Kreativit\u00e4t in KI-generiertem Text kommt vom Sampling niedrigwahrscheinlicher Token. Die 'Temperatur' steuert dies: niedrige Temperatur w\u00e4hlt sichere Token; hohe Temperatur w\u00e4hlt \u00fcberraschende. Es ist der Regler zwischen langweilig-aber-sicher und kreativ-aber-riskant.",
+    sentences: [
+      {
+        tokens: ["Der", " alte", " Mann", " ging", " in", " die", " Kneipe", " und", " bestellte", " ein", " Glas", " Milch"],
+        predictions: [{
+          afterIndex: 9,
+          options: [
+            { token: " Bier", prob: 0.25 },
+            { token: " Glas", prob: 0.14 },
+            { token: " Wasser", prob: 0.08 },
+            { token: " Getr\u00e4nk", prob: 0.06 },
+            { token: " Kaffee", prob: 0.04 }
+          ],
+          explanation: "Das Modell sagt 'Bier' vorher, weil das das h\u00e4ufigste Muster ist. Aber was, wenn im Text 'Milch' steht? Das h\u00e4tte nur ~2% Wahrscheinlichkeit. \u00dcberraschende Wortwahlen machen Texte interessant \u2014 und kommen von niedrigwahrscheinlichen Token."
+        },{
+          afterIndex: 10,
+          options: [
+            { token: " Milch", prob: 0.04 },
+            { token: " Wein", prob: 0.22 },
+            { token: " Wasser", prob: 0.18 },
+            { token: " Bier", prob: 0.15 },
+            { token: " Saft", prob: 0.06 }
+          ],
+          explanation: "Nach 'Glas' dominieren Wein und Wasser. 'Milch' hat nur 4% \u2014 aber genau das macht es lustig in einer Kneipe. Hohe Temperatur w\u00fcrde diese Wahl wahrscheinlicher machen."
+        }]
+      },
+      {
+        tokens: ["Ich", " sagte", " meinem", " Computer", ",", " ich", " brauche", " eine", " Pause", " \u2014", " er", " ist", " eingefroren"],
+        predictions: [{
+          afterIndex: 10,
+          options: [
+            { token: " hat", prob: 0.14 },
+            { token: " ist", prob: 0.12 },
+            { token: " sagte", prob: 0.06 },
+            { token: " machte", prob: 0.05 },
+            { token: " fing", prob: 0.04 }
+          ],
+          explanation: "'eingefroren' w\u00e4re die Pointe \u2014 es funktioniert als Computerabsturz und als Reaktion auf 'Pause'. Bei niedriger Wahrscheinlichkeit w\u00fcrde das Modell das normalerweise nicht w\u00e4hlen. Humor lebt oft in diesen \u00fcberraschenden Verbindungen."
+        }]
+      }
+    ]
+  },
+  {
+    title: "Die vollst\u00e4ndige Kette",
+    description: "Jetzt sehen wir das Gesamtbild. Ein LLM erzeugt Text, indem es diesen Vorhersageprozess hundertfach wiederholt. Jedes gew\u00e4hlte Token ver\u00e4ndert, was als N\u00e4chstes kommt.",
+    concept: "Autoregressive Generierung",
+    takeaway: "Texterzeugung ist nur dieses Ratespiel, tausendfach wiederholt. Jede Token-Wahl beeinflusst alle zuk\u00fcnftigen Vorhersagen. Das ist alles, was ein LLM tut: das n\u00e4chste Token vorhersagen, anh\u00e4ngen und wiederholen. Die Magie ist, dass dieser einfache Prozess erstaunlich koh\u00e4renten Text erzeugt.",
+    sentences: [{
+      tokens: ["Als", " Gregor", " Sam", "sa", " eines", " Morgens", " aus", " unruhigen", " Tr\u00e4umen", " erwachte"],
+      predictions: [
         {
-          tokens: ["For", " dinner", " tonight", " I", "'m", " making"],
-          predictions: [
-            {
-              afterIndex: 5,
-              options: [
-                { token: " a", prob: 0.14 },
-                { token: " chicken", prob: 0.08 },
-                { token: " pasta", prob: 0.07 },
-                { token: " some", prob: 0.06 },
-                { token: " steak", prob: 0.04 }
-              ],
-              explanation: "So many foods could come next! The model spreads probability across dozens of options. No single token gets more than 14%. This flat distribution is the opposite of 'United States of America.'"
-            }
-          ]
+          afterIndex: 1,
+          options: [
+            { token: " Sam", prob: 0.30 },
+            { token: " der", prob: 0.10 },
+            { token: " sich", prob: 0.08 },
+            { token: " die", prob: 0.06 },
+            { token: " er", prob: 0.05 }
+          ],
+          explanation: "'Gregor Sam...' \u2014 nach dem Vornamen Gregor erkennt das Modell den Beginn von Kafkas 'Die Verwandlung'. 'Sam' (Anfang von 'Samsa') ist mit 30% der Favorit."
         },
         {
-          tokens: ["The", " meaning", " of", " life", " is"],
-          predictions: [
-            {
-              afterIndex: 4,
-              options: [
-                { token: " to", prob: 0.14 },
-                { token: " a", prob: 0.11 },
-                { token: " not", prob: 0.07 },
-                { token: " the", prob: 0.06 },
-                { token: " something", prob: 0.04 }
-              ],
-              explanation: "Philosophy is hard for humans AND models. The model hedges its bets across many possible continuations. 'to find meaning,' 'a mystery,' 'not something you find' \u2014 all are plausible, so none gets high probability."
-            }
-          ]
+          afterIndex: 4,
+          options: [
+            { token: " Morgens", prob: 0.45 },
+            { token: " Tages", prob: 0.12 },
+            { token: " Nachts", prob: 0.05 },
+            { token: " schlechten", prob: 0.03 },
+            { token: " sch\u00f6nen", prob: 0.02 }
+          ],
+          explanation: "Mit mehr Kontext wird 'Morgens' zum klaren Favoriten. Das Modell erkennt das ber\u00fchmte Kafka-Zitat. Jedes neue Token engt die M\u00f6glichkeiten ein."
         },
         {
-          tokens: ["The", " weather", " today", " is", " really"],
-          predictions: [
-            {
-              afterIndex: 4,
-              options: [
-                { token: " good", prob: 0.09 },
-                { token: " nice", prob: 0.08 },
-                { token: " bad", prob: 0.07 },
-                { token: " hot", prob: 0.06 },
-                { token: " cold", prob: 0.05 }
-              ],
-              explanation: "Weather could be anything! The model has no way to know the actual weather, so it distributes probability almost evenly across positive and negative descriptions. It's not 'thinking' \u2014 it's just reflecting patterns from text."
-            }
-          ]
+          afterIndex: 7,
+          options: [
+            { token: " Tr\u00e4umen", prob: 0.60 },
+            { token: " N\u00e4chten", prob: 0.06 },
+            { token: " Gedanken", prob: 0.04 },
+            { token: " Zeiten", prob: 0.03 },
+            { token: " Stunden", prob: 0.02 }
+          ],
+          explanation: "'aus unruhigen Tr\u00e4umen' \u2014 das Modell ist jetzt 60% sicher. Die Kombination aus Gregor + Samsa + Morgens + unruhigen macht den Kafka-Kontext eindeutig."
+        },
+        {
+          afterIndex: 8,
+          options: [
+            { token: " erwachte", prob: 0.55 },
+            { token: ",", prob: 0.12 },
+            { token: " aufwachte", prob: 0.08 },
+            { token: " aufstand", prob: 0.03 },
+            { token: " er", prob: 0.02 }
+          ],
+          explanation: "Der kr\u00f6nende Abschluss: 'erwachte' mit 55%. Von der Unsicherheit am Anfang bis zur Gewissheit am Ende \u2014 so baut sich ein LLM Satz f\u00fcr Satz durch den Text. Jedes Token formt die Zukunft."
         }
       ]
-    },
-    {
-      title: "Tokens Aren't Words",
-      description: "LLMs don't predict words \u2014 they predict tokens. A token might be a whole word, part of a word, a punctuation mark, or even just a space. This is one of the most surprising things about how they work.",
-      concept: "Subword tokenization",
-      takeaway: "LLMs break text into tokens, not words. Punctuation, word fragments, and spaces are all separate tokens. This is why AI sometimes struggles with spelling, counting letters, or handling unusual words.",
-      sentences: [
+    }]
+  }
+]},
+fr: { rounds: [
+  {
+    title: "Le mot suivant \u00e9vident",
+    description: "Certaines pr\u00e9dictions sont presque certaines. Quand le contexte ne laisse qu\u2019une option raisonnable, le mod\u00e8le attribue presque toute la probabilit\u00e9 \u00e0 un seul token.",
+    concept: "Pr\u00e9dictions \u00e0 haute confiance",
+    takeaway: "Quand le contexte est tr\u00e8s contraignant, un LLM devient tr\u00e8s confiant. Presque toute la masse de probabilit\u00e9 se concentre sur un seul token. Ce sont les pr\u00e9dictions \u00ab\u00a0faciles\u00a0\u00bb.",
+    sentences: [
+      {
+        tokens: ["La", " R\u00e9publique", " fran\u00e7aise"],
+        predictions: [{
+          afterIndex: 1,
+          options: [
+            { token: " fran\u00e7aise", prob: 0.78 },
+            { token: " est", prob: 0.05 },
+            { token: " d\u00e9mocratique", prob: 0.03 },
+            { token: " tch\u00e8que", prob: 0.02 },
+            { token: " du", prob: 0.02 }
+          ],
+          explanation: "'La R\u00e9publique' est le plus souvent suivi de 'fran\u00e7aise' dans les textes fran\u00e7ais. Le mod\u00e8le attribue 78% de probabilit\u00e9. C\u2019est une pr\u00e9diction \u00e0 haute confiance."
+        }]
+      },
+      {
+        tokens: ["Il", " \u00e9tait", " une", " fois", ",", " dans"],
+        predictions: [{
+          afterIndex: 2,
+          options: [
+            { token: " fois", prob: 0.92 },
+            { token: " heure", prob: 0.02 },
+            { token: " belle", prob: 0.01 },
+            { token: " grande", prob: 0.008 },
+            { token: " petite", prob: 0.005 }
+          ],
+          explanation: "'Il \u00e9tait une fois' est le d\u00e9but classique des contes de f\u00e9es en fran\u00e7ais. Le mod\u00e8le a vu ce motif des milliers de fois, ce qui fait de 'fois' un favori \u00e9crasant \u00e0 92%."
+        },{
+          afterIndex: 4,
+          options: [
+            { token: " dans", prob: 0.22 },
+            { token: " un", prob: 0.18 },
+            { token: " une", prob: 0.15 },
+            { token: " il", prob: 0.06 },
+            { token: " en", prob: 0.05 }
+          ],
+          explanation: "Apr\u00e8s la virgule, les options s\u2019ouvrent. 'dans un pays lointain' ou 'un roi' sont des suites classiques. Les probabilit\u00e9s sont plus \u00e9tal\u00e9es maintenant."
+        }]
+      },
+      {
+        tokens: ["Elle", " a", " ouvert", " la", " porte", " et", " est", " entr\u00e9e"],
+        predictions: [{
+          afterIndex: 6,
+          options: [
+            { token: " entr\u00e9e", prob: 0.28 },
+            { token: " sortie", prob: 0.20 },
+            { token: " partie", prob: 0.10 },
+            { token: " all\u00e9e", prob: 0.08 },
+            { token: " mont\u00e9e", prob: 0.04 }
+          ],
+          explanation: "'entr\u00e9e' et 'sortie' sont toutes deux tr\u00e8s raisonnables apr\u00e8s 'a ouvert la porte et est'. Le mod\u00e8le leur donne des probabilit\u00e9s similaires \u2014 une ambigu\u00eft\u00e9 authentique."
+        }]
+      }
+    ]
+  },
+  {
+    title: "Quand le mod\u00e8le h\u00e9site",
+    description: "Parfois, de nombreux tokens sont \u00e9galement plausibles. La probabilit\u00e9 se r\u00e9partit sur de nombreuses options. C\u2019est de l\u00e0 que vient le \u00ab\u00a0hasard\u00a0\u00bb des textes IA.",
+    concept: "Distributions de probabilit\u00e9s plates",
+    takeaway: "Quand les probabilit\u00e9s sont \u00e9galement r\u00e9parties, le mod\u00e8le est v\u00e9ritablement incertain. De petits choix al\u00e9atoires m\u00e8nent ici \u00e0 des r\u00e9sultats tr\u00e8s diff\u00e9rents. C\u2019est pourquoi on obtient des r\u00e9ponses diff\u00e9rentes \u00e0 chaque fois.",
+    sentences: [
+      {
+        tokens: ["Pour", " le", " d\u00eener", " ce", " soir", ",", " je", " pr\u00e9pare"],
+        predictions: [{
+          afterIndex: 7,
+          options: [
+            { token: " un", prob: 0.12 },
+            { token: " une", prob: 0.10 },
+            { token: " du", prob: 0.09 },
+            { token: " des", prob: 0.08 },
+            { token: " de", prob: 0.06 }
+          ],
+          explanation: "Tant de plats pourraient suivre\u00a0! Le mod\u00e8le r\u00e9partit la probabilit\u00e9 sur des dizaines d\u2019options. Aucun token ne d\u00e9passe 12%. Cette distribution plate est l\u2019oppos\u00e9 de 'R\u00e9publique fran\u00e7aise'."
+        }]
+      },
+      {
+        tokens: ["Le", " sens", " de", " la", " vie", " est"],
+        predictions: [{
+          afterIndex: 5,
+          options: [
+            { token: " de", prob: 0.15 },
+            { token: " un", prob: 0.08 },
+            { token: " d\u2019", prob: 0.07 },
+            { token: " quelque", prob: 0.04 },
+            { token: " une", prob: 0.04 }
+          ],
+          explanation: "La philosophie est difficile pour les humains ET les mod\u00e8les. Le mod\u00e8le h\u00e9site entre de nombreuses continuations possibles. Aucune n\u2019obtient une probabilit\u00e9 \u00e9lev\u00e9e."
+        }]
+      },
+      {
+        tokens: ["Le", " temps", " aujourd\u2019hui", " est", " vraiment"],
+        predictions: [{
+          afterIndex: 4,
+          options: [
+            { token: " beau", prob: 0.11 },
+            { token: " mauvais", prob: 0.08 },
+            { token: " froid", prob: 0.07 },
+            { token: " chaud", prob: 0.06 },
+            { token: " agr\u00e9able", prob: 0.05 }
+          ],
+          explanation: "Le temps pourrait \u00eatre n\u2019importe quoi\u00a0! Le mod\u00e8le ne conna\u00eet pas la m\u00e9t\u00e9o r\u00e9elle et distribue la probabilit\u00e9 presque uniform\u00e9ment. Il ne \u00ab\u00a0pense\u00a0\u00bb pas \u2014 il refl\u00e8te des motifs de texte."
+        }]
+      }
+    ]
+  },
+  {
+    title: "Les tokens ne sont pas des mots",
+    description: "Les LLM ne pr\u00e9disent pas des mots \u2014 ils pr\u00e9disent des tokens. Un token peut \u00eatre un mot entier, une partie de mot, un signe de ponctuation, ou m\u00eame juste un espace.",
+    concept: "Tokenisation en sous-mots",
+    takeaway: "Les LLM d\u00e9coupent le texte en tokens, pas en mots. La ponctuation, les fragments de mots et les espaces sont tous des tokens s\u00e9par\u00e9s. C\u2019est pourquoi l\u2019IA a parfois du mal avec l\u2019orthographe ou le comptage de lettres.",
+    sentences: [
+      {
+        tokens: ["Le", " pr\u00e9sident", " a", " d\u00e9clar\u00e9", " :", " \u00ab", " Nous"],
+        predictions: [{
+          afterIndex: 4,
+          options: [
+            { token: " \u00ab", prob: 0.55 },
+            { token: " \"", prob: 0.18 },
+            { token: " que", prob: 0.10 },
+            { token: " avoir", prob: 0.03 },
+            { token: " son", prob: 0.02 }
+          ],
+          explanation: "Le prochain token est un guillemet\u00a0! Apr\u00e8s 'd\u00e9clar\u00e9 :', le mod\u00e8le s\u2019attend \u00e0 une citation directe. Les signes de ponctuation sont des tokens \u2014 le mod\u00e8le les pr\u00e9dit comme les mots."
+        }]
+      },
+      {
+        tokens: ["Elle", " travaille", " chez", " Micro", "soft"],
+        predictions: [{
+          afterIndex: 3,
+          options: [
+            { token: "soft", prob: 0.95 },
+            { token: "scope", prob: 0.01 },
+            { token: "chip", prob: 0.005 },
+            { token: "wave", prob: 0.004 },
+            { token: "cosm", prob: 0.003 }
+          ],
+          explanation: "'Micro' n\u2019est pas un mot complet ici \u2014 c\u2019est un sous-mot. Le mod\u00e8le a tokenis\u00e9 'Microsoft' en deux morceaux : 'Micro' + 'soft'. Il sait \u00e0 95% que 'soft' compl\u00e8te le mot. C\u2019est la tokenisation en sous-mots (BPE)."
+        }]
+      },
+      {
+        tokens: ["J\u2019ai", " 3", " ", "000", " raisons"],
+        predictions: [{
+          afterIndex: 2,
+          options: [
+            { token: "000", prob: 0.45 },
+            { token: "500", prob: 0.12 },
+            { token: "00", prob: 0.08 },
+            { token: "0", prob: 0.05 },
+            { token: "200", prob: 0.04 }
+          ],
+          explanation: "Les nombres sont tokenis\u00e9s de mani\u00e8re surprenante. '3 000' devient trois tokens : '3' + ' ' + '000'. Le mod\u00e8le doit pr\u00e9dire chaque groupe de chiffres s\u00e9par\u00e9ment. C\u2019est pourquoi les LLM ont parfois du mal avec les math\u00e9matiques."
+        }]
+      }
+    ]
+  },
+  {
+    title: "Le contexte est roi",
+    description: "Le m\u00eame mot peut mener \u00e0 des pr\u00e9dictions compl\u00e8tement diff\u00e9rentes selon ce qui pr\u00e9c\u00e8de. Les LLM utilisent tout le contexte pr\u00e9c\u00e9dent.",
+    concept: "Pr\u00e9dictions d\u00e9pendantes du contexte",
+    takeaway: "Chaque token dans le contexte compte. Le m\u00eame mot produit des distributions de probabilit\u00e9 compl\u00e8tement diff\u00e9rentes selon les mots environnants. C\u2019est la puissance du m\u00e9canisme d\u2019\u00ab\u00a0attention\u00a0\u00bb.",
+    sentences: [
+      {
+        tokens: ["L\u2019", "avocat", " dans", " la", " salade", " \u00e9tait", " m\u00fbr"],
+        predictions: [{
+          afterIndex: 5,
+          options: [
+            { token: " m\u00fbr", prob: 0.14 },
+            { token: " d\u00e9licieux", prob: 0.12 },
+            { token: " frais", prob: 0.10 },
+            { token: " bon", prob: 0.08 },
+            { token: " bio", prob: 0.05 }
+          ],
+          explanation: "Apr\u00e8s 'L\u2019avocat dans la salade \u00e9tait', le mod\u00e8le pr\u00e9dit des qualit\u00e9s de fruit. 'salade' a dit au mod\u00e8le qu\u2019on parle d\u2019un fruit, pas d\u2019un juriste. Le contexte a r\u00e9solu l\u2019ambigu\u00eft\u00e9."
+        }]
+      },
+      {
+        tokens: ["L\u2019", "avocat", " de", " la", " d\u00e9fense", " a", " plaid\u00e9"],
+        predictions: [{
+          afterIndex: 5,
+          options: [
+            { token: " plaid\u00e9", prob: 0.15 },
+            { token: " d\u00e9clar\u00e9", prob: 0.14 },
+            { token: " demand\u00e9", prob: 0.10 },
+            { token: " pr\u00e9sent\u00e9", prob: 0.08 },
+            { token: " contest\u00e9", prob: 0.06 }
+          ],
+          explanation: "M\u00eame mot 'avocat', pr\u00e9dictions totalement diff\u00e9rentes. 'de la d\u00e9fense' a dit au mod\u00e8le qu\u2019on est au tribunal. M\u00eame mot de d\u00e9part, monde diff\u00e9rent."
+        }]
+      },
+      {
+        tokens: ["J\u2019adore", " Python", " parce", " que", " c\u2019est", " si", " simple"],
+        predictions: [{
+          afterIndex: 5,
+          options: [
+            { token: " simple", prob: 0.16 },
+            { token: " facile", prob: 0.12 },
+            { token: " puissant", prob: 0.08 },
+            { token: " polyvalent", prob: 0.07 },
+            { token: " \u00e9l\u00e9gant", prob: 0.06 }
+          ],
+          explanation: "Le mod\u00e8le sait que 'Python' ici d\u00e9signe le langage de programmation (gr\u00e2ce \u00e0 'adore' et 'parce que c\u2019est si'). Si la phrase avait commenc\u00e9 par 'J\u2019ai vu un python', les pr\u00e9dictions seraient sur les serpents."
+        }]
+      }
+    ]
+  },
+  {
+    title: "Motifs & clich\u00e9s",
+    description: "Les LLM apprennent \u00e0 partir de quantit\u00e9s massives de texte. Ils rep\u00e8rent les phrases courantes, les clich\u00e9s et les motifs culturels.",
+    concept: "Motifs des donn\u00e9es d\u2019entra\u00eenement",
+    takeaway: "Les LLM ne \u00ab\u00a0connaissent\u00a0\u00bb pas les faits \u2014 ils ont appris des motifs statistiques. Les phrases courantes obtiennent une confiance \u00e9lev\u00e9e. Le savoir factuel est encod\u00e9 comme probabilit\u00e9, pas comme compr\u00e9hension.",
+    sentences: [
+      {
+        tokens: ["Libert\u00e9", ",", " \u00e9galit\u00e9", ",", " fraternit\u00e9"],
+        predictions: [{
+          afterIndex: 2,
+          options: [
+            { token: ",", prob: 0.85 },
+            { token: " et", prob: 0.05 },
+            { token: ".", prob: 0.03 },
+            { token: " :", prob: 0.01 },
+            { token: " \u2014", prob: 0.008 }
+          ],
+          explanation: "La devise de la R\u00e9publique fran\u00e7aise\u00a0! Apr\u00e8s '\u00e9galit\u00e9', le mod\u00e8le est \u00e0 85% s\u00fbr qu\u2019une virgule suit (puis 'fraternit\u00e9'). Les devises et slogans cr\u00e9ent des pr\u00e9dictions extr\u00eamement confiantes."
+        }]
+      },
+      {
+        tokens: ["La", " capitale", " du", " Canada", " est", " Ottawa"],
+        predictions: [{
+          afterIndex: 4,
+          options: [
+            { token: " Ottawa", prob: 0.48 },
+            { token: " Toronto", prob: 0.22 },
+            { token: " Montr\u00e9al", prob: 0.08 },
+            { token: " une", prob: 0.04 },
+            { token: " Ott", prob: 0.03 }
+          ],
+          explanation: "Le mod\u00e8le \u00ab\u00a0sait\u00a0\u00bb que c\u2019est Ottawa (48%), mais Toronto obtient 22%\u00a0! Parce que beaucoup pensent \u00e0 tort que Toronto est la capitale. Le savoir du mod\u00e8le refl\u00e8te les textes humains \u2014 erreurs comprises."
+        }]
+      },
+      {
+        tokens: ["\u00catre", " ou", " ne", " pas", " \u00eatre"],
+        predictions: [{
+          afterIndex: 3,
+          options: [
+            { token: " \u00eatre", prob: 0.95 },
+            { token: " avoir", prob: 0.01 },
+            { token: " savoir", prob: 0.005 },
+            { token: " dire", prob: 0.004 },
+            { token: " faire", prob: 0.003 }
+          ],
+          explanation: "Shakespeare traduit en fran\u00e7ais\u00a0! Cette citation est si profond\u00e9ment ancr\u00e9e que le mod\u00e8le est \u00e0 95% s\u00fbr. Les citations c\u00e9l\u00e8bres agissent comme des expressions fig\u00e9es."
+        }]
+      }
+    ]
+  },
+  {
+    title: "Le facteur surprise",
+    description: "Le texte le plus int\u00e9ressant utilise des mots inattendus. L\u2019\u00e9criture cr\u00e9ative, l\u2019humour et les retournements viennent de tokens \u00e0 faible probabilit\u00e9.",
+    concept: "Tokens improbables & temp\u00e9rature",
+    takeaway: "La cr\u00e9ativit\u00e9 dans le texte IA vient de l\u2019\u00e9chantillonnage de tokens \u00e0 faible probabilit\u00e9. La \u00ab\u00a0temp\u00e9rature\u00a0\u00bb contr\u00f4le cela : basse = texte s\u00fbr et pr\u00e9visible, haute = texte cr\u00e9atif et surprenant.",
+    sentences: [
+      {
+        tokens: ["Le", " vieil", " homme", " entra", " au", " bar", " et", " commanda", " un", " verre", " de", " lait"],
+        predictions: [{
+          afterIndex: 8,
+          options: [
+            { token: " bi\u00e8re", prob: 0.20 },
+            { token: " verre", prob: 0.15 },
+            { token: " caf\u00e9", prob: 0.10 },
+            { token: " whisky", prob: 0.08 },
+            { token: " cocktail", prob: 0.05 }
+          ],
+          explanation: "Le mod\u00e8le pr\u00e9dit 'bi\u00e8re' car c\u2019est le motif le plus courant. Mais si le texte disait 'lait'\u00a0? Probabilit\u00e9 ~2%. Les choix surprenants rendent l\u2019\u00e9criture int\u00e9ressante."
+        },{
+          afterIndex: 10,
+          options: [
+            { token: " lait", prob: 0.04 },
+            { token: " vin", prob: 0.25 },
+            { token: " eau", prob: 0.18 },
+            { token: " whisky", prob: 0.12 },
+            { token: " jus", prob: 0.06 }
+          ],
+          explanation: "Apr\u00e8s 'verre de', le vin domine. 'lait' n\u2019a que 4% \u2014 mais c\u2019est ce qui rend la sc\u00e8ne dr\u00f4le. Une temp\u00e9rature \u00e9lev\u00e9e rendrait ce choix plus probable."
+        }]
+      },
+      {
+        tokens: ["J\u2019ai", " dit", " \u00e0", " mon", " ordinateur", " que", " j\u2019avais", " besoin", " d\u2019une", " pause", " \u2014", " il", " a", " plant\u00e9"],
+        predictions: [{
+          afterIndex: 12,
+          options: [
+            { token: " r\u00e9pondu", prob: 0.12 },
+            { token: " plant\u00e9", prob: 0.05 },
+            { token: " dit", prob: 0.10 },
+            { token: " red\u00e9marr\u00e9", prob: 0.06 },
+            { token: " refus\u00e9", prob: 0.04 }
+          ],
+          explanation: "'plant\u00e9' est la chute \u2014 \u00e7a marche comme panne informatique et comme r\u00e9action au mot 'pause'. \u00c0 seulement 5%, le mod\u00e8le ne choisirait normalement pas cela. L\u2019humour vit dans ces connexions improbables."
+        }]
+      }
+    ]
+  },
+  {
+    title: "La cha\u00eene compl\u00e8te",
+    description: "Voyons maintenant le tableau complet. Un LLM g\u00e9n\u00e8re du texte en r\u00e9p\u00e9tant ce processus des centaines de fois. Chaque token choisi change la suite.",
+    concept: "G\u00e9n\u00e9ration autor\u00e9gressive",
+    takeaway: "La g\u00e9n\u00e9ration de texte n\u2019est que ce jeu de devinette r\u00e9p\u00e9t\u00e9 des milliers de fois. Chaque choix de token se r\u00e9percute sur toutes les pr\u00e9dictions futures. C\u2019est tout ce qu\u2019un LLM fait : pr\u00e9dire, ajouter, r\u00e9p\u00e9ter.",
+    sentences: [{
+      tokens: ["Longtemps", ",", " je", " me", " suis", " couch\u00e9", " de", " bonne", " heure"],
+      predictions: [
         {
-          tokens: ["The", " CEO", " announced", ",", " \"", "We"],
-          predictions: [
-            {
-              afterIndex: 3,
-              options: [
-                { token: " \"", prob: 0.72 },
-                { token: " that", prob: 0.10 },
-                { token: " a", prob: 0.05 },
-                { token: " the", prob: 0.04 },
-                { token: " today", prob: 0.02 }
-              ],
-              explanation: "Surprise! The next token is a quotation mark, not a word. After 'announced,' the model strongly expects a direct quote. Punctuation marks are tokens too \u2014 the model predicts them just like it predicts words."
-            }
-          ]
+          afterIndex: 1,
+          options: [
+            { token: " je", prob: 0.35 },
+            { token: " il", prob: 0.10 },
+            { token: " les", prob: 0.06 },
+            { token: " j\u2019", prob: 0.08 },
+            { token: " nous", prob: 0.04 }
+          ],
+          explanation: "Apr\u00e8s 'Longtemps,' \u2014 le mod\u00e8le reconna\u00eet d\u00e9j\u00e0 le d\u00e9but de Proust. 'je' est le favori \u00e0 35% car c\u2019est la premi\u00e8re phrase de '\u00c0 la recherche du temps perdu'."
         },
         {
-          tokens: ["She", " works", " at", " Micro", "soft"],
-          predictions: [
-            {
-              afterIndex: 3,
-              options: [
-                { token: "soft", prob: 0.95 },
-                { token: "scope", prob: 0.01 },
-                { token: "chip", prob: 0.005 },
-                { token: "wave", prob: 0.004 },
-                { token: "phone", prob: 0.003 }
-              ],
-              explanation: "'Micro' isn't a complete word here \u2014 it's a subword token. The model tokenized 'Microsoft' as two pieces: 'Micro' + 'soft'. It knows with 95% confidence that 'soft' completes this token. This is called subword tokenization (BPE)."
-            }
-          ]
+          afterIndex: 4,
+          options: [
+            { token: " couch\u00e9", prob: 0.52 },
+            { token: " lev\u00e9", prob: 0.08 },
+            { token: " endormi", prob: 0.05 },
+            { token: " demand\u00e9", prob: 0.04 },
+            { token: " senti", prob: 0.03 }
+          ],
+          explanation: "Avec plus de contexte, 'couch\u00e9' devient le favori clair \u00e0 52%. Le mod\u00e8le reconna\u00eet la c\u00e9l\u00e8bre phrase de Proust. Chaque nouveau token r\u00e9duit les possibilit\u00e9s."
         },
         {
-          tokens: ["I", " have", " 3", ",", "000", " reasons"],
-          predictions: [
-            {
-              afterIndex: 3,
-              options: [
-                { token: "000", prob: 0.48 },
-                { token: "500", prob: 0.12 },
-                { token: "00", prob: 0.08 },
-                { token: "0", prob: 0.05 },
-                { token: "200", prob: 0.04 }
-              ],
-              explanation: "Numbers get tokenized in surprising ways. '3,000' becomes three tokens: '3' + ',' + '000'. The model has to predict each digit group separately. This is why LLMs sometimes struggle with math \u2014 they process numbers as text fragments, not quantities."
-            }
-          ]
+          afterIndex: 6,
+          options: [
+            { token: " bonne", prob: 0.65 },
+            { token: " tr\u00e8s", prob: 0.06 },
+            { token: " la", prob: 0.04 },
+            { token: " fort", prob: 0.03 },
+            { token: " assez", prob: 0.02 }
+          ],
+          explanation: "'de bonne heure' \u2014 le mod\u00e8le est maintenant \u00e0 65% confiant. La combinaison des tokens pr\u00e9c\u00e9dents rend le contexte proustien \u00e9vident."
+        },
+        {
+          afterIndex: 7,
+          options: [
+            { token: " heure", prob: 0.80 },
+            { token: " humeur", prob: 0.04 },
+            { token: " foi", prob: 0.02 },
+            { token: " gr\u00e2ce", prob: 0.01 },
+            { token: " volont\u00e9", prob: 0.01 }
+          ],
+          explanation: "Le final : 'heure' \u00e0 80%. De l\u2019incertitude du d\u00e9but \u00e0 la quasi-certitude de la fin. C\u2019est exactement ainsi qu\u2019un LLM construit un texte : chaque token fa\u00e7onne l\u2019avenir."
         }
       ]
-    },
-    {
-      title: "Context Is Everything",
-      description: "The same word can lead to completely different predictions depending on what came before it. LLMs use the entire preceding context to make their guess.",
-      concept: "Context-dependent predictions",
-      takeaway: "Every token in the context matters. The same word produces completely different probability distributions depending on surrounding words. This is the power of the 'attention' mechanism \u2014 the model considers the full context for every prediction.",
-      sentences: [
+    }]
+  }
+]},
+it: { rounds: [
+  {
+    title: "La parola ovvia",
+    description: "Alcune previsioni sono quasi certe. Quando il contesto lascia una sola opzione ragionevole, il modello assegna quasi tutta la probabilit\u00e0 a un singolo token.",
+    concept: "Previsioni ad alta confidenza",
+    takeaway: "Quando il contesto \u00e8 molto vincolante, un LLM diventa molto sicuro. Quasi tutta la massa di probabilit\u00e0 si concentra su un singolo token. Queste sono le previsioni 'facili'.",
+    sentences: [
+      {
+        tokens: ["La", " Repubblica", " Italiana"],
+        predictions: [{
+          afterIndex: 1,
+          options: [
+            { token: " Italiana", prob: 0.55 },
+            { token: " \u00e8", prob: 0.10 },
+            { token: " Ceca", prob: 0.05 },
+            { token: " di", prob: 0.04 },
+            { token: " Popolare", prob: 0.03 }
+          ],
+          explanation: "'La Repubblica' \u00e8 pi\u00f9 spesso seguito da 'Italiana' nei testi italiani. Il modello assegna il 55% di probabilit\u00e0. \u00c8 una previsione ad alta confidenza."
+        }]
+      },
+      {
+        tokens: ["C\u2019era", " una", " volta", ",", " in", " un"],
+        predictions: [{
+          afterIndex: 1,
+          options: [
+            { token: " volta", prob: 0.88 },
+            { token: " casa", prob: 0.02 },
+            { token: " donna", prob: 0.01 },
+            { token: " bella", prob: 0.01 },
+            { token: " ragazza", prob: 0.008 }
+          ],
+          explanation: "'C\u2019era una volta' \u00e8 l\u2019inizio classico delle fiabe in italiano. Il modello ha visto questo schema migliaia di volte, rendendo 'volta' il favorito schiacciante all\u201988%."
+        },{
+          afterIndex: 3,
+          options: [
+            { token: " in", prob: 0.25 },
+            { token: " un", prob: 0.18 },
+            { token: " una", prob: 0.12 },
+            { token: " nel", prob: 0.06 },
+            { token: " tanto", prob: 0.05 }
+          ],
+          explanation: "Dopo la virgola, le opzioni si aprono. 'in un paese lontano' o 'un re' sono continuazioni classiche. Le probabilit\u00e0 sono pi\u00f9 distribuite ora."
+        }]
+      },
+      {
+        tokens: ["Lei", " ha", " aperto", " la", " porta", " ed", " \u00e8", " entrata"],
+        predictions: [{
+          afterIndex: 6,
+          options: [
+            { token: " entrata", prob: 0.30 },
+            { token: " uscita", prob: 0.22 },
+            { token: " andata", prob: 0.08 },
+            { token: " tornata", prob: 0.06 },
+            { token: " salita", prob: 0.04 }
+          ],
+          explanation: "'entrata' e 'uscita' sono entrambe molto ragionevoli dopo 'ha aperto la porta ed \u00e8'. Il modello d\u00e0 loro probabilit\u00e0 simili \u2014 un\u2019ambiguit\u00e0 genuina."
+        }]
+      }
+    ]
+  },
+  {
+    title: "Quando il modello esita",
+    description: "A volte molti token sono ugualmente plausibili. La probabilit\u00e0 si distribuisce su molte opzioni. \u00c8 da qui che viene la 'casualit\u00e0' dei testi IA.",
+    concept: "Distribuzioni di probabilit\u00e0 piatte",
+    takeaway: "Quando le probabilit\u00e0 sono distribuite uniformemente, il modello \u00e8 veramente incerto. Piccole scelte casuali portano a risultati molto diversi. Ecco perch\u00e9 si ottengono risposte diverse ogni volta.",
+    sentences: [
+      {
+        tokens: ["Per", " cena", " stasera", " preparo"],
+        predictions: [{
+          afterIndex: 3,
+          options: [
+            { token: " la", prob: 0.12 },
+            { token: " una", prob: 0.10 },
+            { token: " pasta", prob: 0.08 },
+            { token: " il", prob: 0.07 },
+            { token: " un", prob: 0.06 }
+          ],
+          explanation: "Tanti piatti potrebbero seguire! Il modello distribuisce la probabilit\u00e0 su decine di opzioni. Nessun token supera il 12%. Questa distribuzione piatta \u00e8 l\u2019opposto di 'Repubblica Italiana'."
+        }]
+      },
+      {
+        tokens: ["Il", " senso", " della", " vita", " \u00e8"],
+        predictions: [{
+          afterIndex: 4,
+          options: [
+            { token: " un", prob: 0.10 },
+            { token: " quello", prob: 0.07 },
+            { token: " la", prob: 0.06 },
+            { token: " di", prob: 0.08 },
+            { token: " che", prob: 0.05 }
+          ],
+          explanation: "La filosofia \u00e8 difficile per gli umani E per i modelli. Il modello distribuisce le sue scommesse su molte continuazioni possibili. Nessuna ottiene alta probabilit\u00e0."
+        }]
+      },
+      {
+        tokens: ["Il", " tempo", " oggi", " \u00e8", " davvero"],
+        predictions: [{
+          afterIndex: 4,
+          options: [
+            { token: " bello", prob: 0.12 },
+            { token: " brutto", prob: 0.08 },
+            { token: " freddo", prob: 0.07 },
+            { token: " caldo", prob: 0.06 },
+            { token: " piacevole", prob: 0.05 }
+          ],
+          explanation: "Il tempo potrebbe essere qualsiasi cosa! Il modello non conosce il meteo reale e distribuisce la probabilit\u00e0 quasi uniformemente. Non 'pensa' \u2014 riflette solo schemi dal testo."
+        }]
+      }
+    ]
+  },
+  {
+    title: "I token non sono parole",
+    description: "Gli LLM non prevedono parole \u2014 prevedono token. Un token pu\u00f2 essere una parola intera, parte di una parola, un segno di punteggiatura, o anche solo uno spazio.",
+    concept: "Tokenizzazione in sotto-parole",
+    takeaway: "Gli LLM spezzano il testo in token, non in parole. Punteggiatura, frammenti di parole e spazi sono tutti token separati. Ecco perch\u00e9 l\u2019IA a volte fatica con l\u2019ortografia o il conteggio delle lettere.",
+    sentences: [
+      {
+        tokens: ["Il", " ministro", " ha", " dichiarato", " :", " \u00ab", " Noi"],
+        predictions: [{
+          afterIndex: 4,
+          options: [
+            { token: " \u00ab", prob: 0.50 },
+            { token: " \"", prob: 0.18 },
+            { token: " che", prob: 0.12 },
+            { token: " di", prob: 0.04 },
+            { token: " la", prob: 0.03 }
+          ],
+          explanation: "Sorpresa! Il prossimo token \u00e8 un segno di virgolette. Dopo 'dichiarato :', il modello si aspetta una citazione diretta. I segni di punteggiatura sono token \u2014 il modello li prevede come le parole."
+        }]
+      },
+      {
+        tokens: ["Lei", " lavora", " alla", " Lamborgh", "ini"],
+        predictions: [{
+          afterIndex: 3,
+          options: [
+            { token: "ini", prob: 0.93 },
+            { token: "ina", prob: 0.01 },
+            { token: "ino", prob: 0.005 },
+            { token: "ese", prob: 0.003 },
+            { token: "i", prob: 0.003 }
+          ],
+          explanation: "'Lamborgh' non \u00e8 una parola completa \u2014 \u00e8 un sotto-token. Il modello ha tokenizzato 'Lamborghini' in 'Lamborgh' + 'ini'. Sa al 93% che 'ini' completa il token. Questa \u00e8 la tokenizzazione in sotto-parole (BPE)."
+        }]
+      },
+      {
+        tokens: ["Ho", " 1", ".", "000", " motivi"],
+        predictions: [{
+          afterIndex: 2,
+          options: [
+            { token: "000", prob: 0.45 },
+            { token: "500", prob: 0.12 },
+            { token: "00", prob: 0.08 },
+            { token: "0", prob: 0.05 },
+            { token: "200", prob: 0.04 }
+          ],
+          explanation: "I numeri vengono tokenizzati in modo sorprendente. '1.000' diventa tre token: '1' + '.' + '000'. Il modello deve prevedere ogni gruppo di cifre separatamente. Ecco perch\u00e9 gli LLM a volte faticano con la matematica."
+        }]
+      }
+    ]
+  },
+  {
+    title: "Il contesto \u00e8 tutto",
+    description: "La stessa parola pu\u00f2 portare a previsioni completamente diverse a seconda di ci\u00f2 che precede. Gli LLM usano l\u2019intero contesto precedente.",
+    concept: "Previsioni dipendenti dal contesto",
+    takeaway: "Ogni token nel contesto conta. La stessa parola produce distribuzioni di probabilit\u00e0 completamente diverse a seconda delle parole circostanti. Questa \u00e8 la potenza del meccanismo di 'attenzione'.",
+    sentences: [
+      {
+        tokens: ["La", " penna", " sul", " tavolo", " era", " rossa"],
+        predictions: [{
+          afterIndex: 4,
+          options: [
+            { token: " rossa", prob: 0.10 },
+            { token: " nuova", prob: 0.09 },
+            { token: " blu", prob: 0.08 },
+            { token: " nera", prob: 0.07 },
+            { token: " sua", prob: 0.06 }
+          ],
+          explanation: "Dopo 'La penna sul tavolo era', il modello prevede descrizioni di un oggetto da scrittura. 'tavolo' ha detto al modello che parliamo di una penna da scrivere, non di una piuma o sanzione."
+        }]
+      },
+      {
+        tokens: ["La", " penna", " prevista", " dal", " codice", " \u00e8", " severa"],
+        predictions: [{
+          afterIndex: 5,
+          options: [
+            { token: " severa", prob: 0.12 },
+            { token: " la", prob: 0.11 },
+            { token: " di", prob: 0.08 },
+            { token: " una", prob: 0.07 },
+            { token: " grave", prob: 0.06 }
+          ],
+          explanation: "Stessa parola 'penna', previsioni totalmente diverse. 'prevista dal codice' ha detto al modello che siamo in ambito giuridico. Stessa parola di partenza, mondo diverso."
+        }]
+      },
+      {
+        tokens: ["Adoro", " Python", " perch\u00e9", " \u00e8", " cos\u00ec", " semplice"],
+        predictions: [{
+          afterIndex: 4,
+          options: [
+            { token: " semplice", prob: 0.15 },
+            { token: " facile", prob: 0.12 },
+            { token: " potente", prob: 0.09 },
+            { token: " versatile", prob: 0.07 },
+            { token: " elegante", prob: 0.06 }
+          ],
+          explanation: "Il modello sa che 'Python' qui significa il linguaggio di programmazione (grazie a 'Adoro' e 'perch\u00e9 \u00e8 cos\u00ec'). Se la frase fosse iniziata con 'Ho visto un pitone', le previsioni sarebbero sui serpenti."
+        }]
+      }
+    ]
+  },
+  {
+    title: "Schemi & clich\u00e9",
+    description: "Gli LLM imparano da enormi quantit\u00e0 di testo. Colgono frasi comuni, clich\u00e9 e schemi culturali. A volte questo li rende molto prevedibili \u2014 e rivela sorprendenti pregiudizi.",
+    concept: "Schemi dei dati di addestramento",
+    takeaway: "Gli LLM non 'sanno' i fatti \u2014 hanno imparato schemi statistici dal testo. Le frasi comuni ottengono alta confidenza. La conoscenza fattuale \u00e8 codificata come probabilit\u00e0, non come comprensione.",
+    sentences: [
+      {
+        tokens: ["Tutte", " le", " strade", " portano", " a", " Roma"],
+        predictions: [{
+          afterIndex: 4,
+          options: [
+            { token: " Roma", prob: 0.92 },
+            { token: " casa", prob: 0.02 },
+            { token: " niente", prob: 0.01 },
+            { token: " qualcosa", prob: 0.005 },
+            { token: " Dio", prob: 0.004 }
+          ],
+          explanation: "Il proverbio pi\u00f9 famoso! Il modello ha visto questa frase cos\u00ec tante volte che \u00e8 sicuro al 92%. I proverbi e le citazioni famose creano previsioni estremamente sicure."
+        }]
+      },
+      {
+        tokens: ["La", " capitale", " dell\u2019", "Australia", " \u00e8", " Canberra"],
+        predictions: [{
+          afterIndex: 4,
+          options: [
+            { token: " Canberra", prob: 0.50 },
+            { token: " Sydney", prob: 0.24 },
+            { token: " Melbourne", prob: 0.08 },
+            { token: " una", prob: 0.03 },
+            { token: " Can", prob: 0.03 }
+          ],
+          explanation: "Il modello 'sa' che \u00e8 Canberra (50%), ma Sydney ottiene il 24%! Perch\u00e9 molti pensano erroneamente che Sydney sia la capitale. La conoscenza del modello riflette i testi umani \u2014 errori inclusi."
+        }]
+      },
+      {
+        tokens: ["Essere", " o", " non", " essere"],
+        predictions: [{
+          afterIndex: 2,
+          options: [
+            { token: " essere", prob: 0.95 },
+            { token: " solo", prob: 0.008 },
+            { token: " pi\u00f9", prob: 0.005 },
+            { token: " avere", prob: 0.004 },
+            { token: " dire", prob: 0.003 }
+          ],
+          explanation: "Shakespeare tradotto in italiano! Questa citazione \u00e8 cos\u00ec profondamente radicata che il modello \u00e8 sicuro al 95%. Le citazioni famose agiscono come espressioni fisse."
+        }]
+      }
+    ]
+  },
+  {
+    title: "Il fattore sorpresa",
+    description: "Il testo pi\u00f9 interessante usa parole inaspettate. La scrittura creativa, l\u2019umorismo e i colpi di scena vengono da token a bassa probabilit\u00e0.",
+    concept: "Token improbabili & temperatura",
+    takeaway: "La creativit\u00e0 nel testo generato dall\u2019IA viene dal campionamento di token a bassa probabilit\u00e0. La 'temperatura' controlla questo: bassa = testo sicuro, alta = testo creativo e sorprendente.",
+    sentences: [
+      {
+        tokens: ["Il", " vecchio", " entr\u00f2", " al", " bar", " e", " ordin\u00f2", " un", " bicchiere", " di", " latte"],
+        predictions: [{
+          afterIndex: 7,
+          options: [
+            { token: " birra", prob: 0.22 },
+            { token: " bicchiere", prob: 0.14 },
+            { token: " caff\u00e8", prob: 0.12 },
+            { token: " whisky", prob: 0.06 },
+            { token: " aperitivo", prob: 0.05 }
+          ],
+          explanation: "Il modello prevede 'birra' perch\u00e9 \u00e8 lo schema pi\u00f9 comune. Ma se il testo dicesse 'latte'? Avrebbe solo ~2% di probabilit\u00e0. Le scelte sorprendenti rendono la scrittura interessante."
+        },{
+          afterIndex: 9,
+          options: [
+            { token: " latte", prob: 0.04 },
+            { token: " vino", prob: 0.25 },
+            { token: " acqua", prob: 0.18 },
+            { token: " whisky", prob: 0.12 },
+            { token: " succo", prob: 0.06 }
+          ],
+          explanation: "Dopo 'bicchiere di', il vino domina. 'latte' ha solo il 4% \u2014 ma \u00e8 questo che rende la scena divertente al bar. Alta temperatura renderebbe questa scelta pi\u00f9 probabile."
+        }]
+      },
+      {
+        tokens: ["Ho", " detto", " al", " mio", " computer", " che", " avevo", " bisogno", " di", " una", " pausa", " \u2014", " si", " \u00e8", " bloccato"],
+        predictions: [{
+          afterIndex: 13,
+          options: [
+            { token: " spento", prob: 0.10 },
+            { token: " bloccato", prob: 0.05 },
+            { token: " riavviato", prob: 0.08 },
+            { token: " messo", prob: 0.06 },
+            { token: " arrab", prob: 0.03 }
+          ],
+          explanation: "'bloccato' \u00e8 la battuta \u2014 funziona sia come malfunzionamento che come reazione alla parola 'pausa'. Al solo 5%, il modello normalmente non sceglierebbe questo. L\u2019umorismo vive in queste connessioni improbabili."
+        }]
+      }
+    ]
+  },
+  {
+    title: "La catena completa",
+    description: "Ora vediamo il quadro completo. Un LLM genera testo ripetendo questo processo centinaia di volte. Ogni token scelto cambia ci\u00f2 che viene dopo.",
+    concept: "Generazione autoregressiva",
+    takeaway: "La generazione di testo \u00e8 solo questo gioco di previsione ripetuto migliaia di volte. Ogni scelta di token si ripercuote su tutte le previsioni future. Questo \u00e8 tutto ci\u00f2 che fa un LLM: prevedere, aggiungere, ripetere.",
+    sentences: [{
+      tokens: ["Nel", " mezzo", " del", " cammin", " di", " nostra", " vita"],
+      predictions: [
         {
-          tokens: ["The", " bank", " of", " the", " river", " was", " steep"],
-          predictions: [
-            {
-              afterIndex: 5,
-              options: [
-                { token: " steep", prob: 0.14 },
-                { token: " covered", prob: 0.12 },
-                { token: " muddy", prob: 0.10 },
-                { token: " dry", prob: 0.08 },
-                { token: " lined", prob: 0.07 }
-              ],
-              explanation: "After 'The bank of the river was,' the model predicts terrain descriptions. 'river' earlier in the sentence told the model we're talking about a riverbank, not a financial bank. Context resolved the ambiguity."
-            }
-          ]
+          afterIndex: 1,
+          options: [
+            { token: " del", prob: 0.40 },
+            { token: " di", prob: 0.15 },
+            { token: " della", prob: 0.08 },
+            { token: " c\u2019era", prob: 0.04 },
+            { token: " a", prob: 0.03 }
+          ],
+          explanation: "Dopo 'Nel mezzo' \u2014 il modello riconosce gi\u00e0 l\u2019inizio della Divina Commedia di Dante. 'del' \u00e8 il favorito al 40%."
         },
         {
-          tokens: ["The", " bank", " approved", " the", " loan", " application"],
-          predictions: [
-            {
-              afterIndex: 4,
-              options: [
-                { token: " application", prob: 0.22 },
-                { token: ".", prob: 0.18 },
-                { token: " request", prob: 0.12 },
-                { token: " for", prob: 0.10 },
-                { token: ",", prob: 0.08 }
-              ],
-              explanation: "Same word 'bank,' totally different predictions. 'approved' told the model we're in financial territory. Notice the period is a likely token \u2014 the sentence could naturally end here. Same starting word, different world."
-            }
-          ]
+          afterIndex: 3,
+          options: [
+            { token: " di", prob: 0.70 },
+            { token: " della", prob: 0.08 },
+            { token: ",", prob: 0.04 },
+            { token: " del", prob: 0.03 },
+            { token: " che", prob: 0.02 }
+          ],
+          explanation: "Con pi\u00f9 contesto, 'di' diventa il chiaro favorito al 70%. Il modello riconosce il verso di Dante. Ogni nuovo token restringe le possibilit\u00e0."
         },
         {
-          tokens: ["I", " love", " Python", " because", " it", "'s", " so", " easy"],
-          predictions: [
-            {
-              afterIndex: 6,
-              options: [
-                { token: " easy", prob: 0.18 },
-                { token: " simple", prob: 0.14 },
-                { token: " readable", prob: 0.10 },
-                { token: " versatile", prob: 0.08 },
-                { token: " elegant", prob: 0.07 }
-              ],
-              explanation: "The model knows 'Python' in this context means the programming language (because of 'love' and 'because it's so'). If the sentence started with 'I saw a Python,' predictions would be about snakes instead. Context shapes everything."
-            }
-          ]
+          afterIndex: 4,
+          options: [
+            { token: " nostra", prob: 0.75 },
+            { token: " questa", prob: 0.04 },
+            { token: " una", prob: 0.03 },
+            { token: " mia", prob: 0.02 },
+            { token: " sua", prob: 0.01 }
+          ],
+          explanation: "'di nostra vita' \u2014 il modello \u00e8 ora al 75% di confidenza. 'cammin di nostra' \u00e8 inconfondibilmente Dante."
+        },
+        {
+          afterIndex: 5,
+          options: [
+            { token: " vita", prob: 0.90 },
+            { token: " patria", prob: 0.02 },
+            { token: " storia", prob: 0.01 },
+            { token: " terra", prob: 0.008 },
+            { token: " gente", prob: 0.005 }
+          ],
+          explanation: "Il finale: 'vita' al 90%. Dall\u2019incertezza dell\u2019inizio alla quasi-certezza della fine. Questo \u00e8 esattamente come un LLM costruisce il testo: ogni token plasma il futuro."
         }
       ]
-    },
-    {
-      title: "Patterns & Clich\u00e9s",
-      description: "LLMs learn from vast amounts of text. They pick up on common phrases, clich\u00e9s, and cultural patterns. Sometimes this means they're very predictable \u2014 and sometimes it reveals surprising biases.",
-      concept: "Training data patterns",
-      takeaway: "LLMs don't 'know' facts \u2014 they've learned statistical patterns from text. Common phrases get high confidence. Factual knowledge is encoded as probability, not understanding. And the patterns in training data, including human biases, show up in the model's predictions.",
-      sentences: [
-        {
-          tokens: ["It", " was", " a", " dark", " and", " stormy", " night"],
-          predictions: [
-            {
-              afterIndex: 5,
-              options: [
-                { token: " night", prob: 0.94 },
-                { token: " day", prob: 0.02 },
-                { token: " evening", prob: 0.01 },
-                { token: " sea", prob: 0.005 },
-                { token: " winter", prob: 0.003 }
-              ],
-              explanation: "The most famous opening line clich\u00e9 in English! The model has seen this phrase so many times that it's 94% confident. Clich\u00e9s and famous quotes create extremely high-confidence predictions because they appear so often in training data."
-            }
-          ]
-        },
-        {
-          tokens: ["The", " capital", " of", " Australia", " is", " Canberra"],
-          predictions: [
-            {
-              afterIndex: 4,
-              options: [
-                { token: " Canberra", prob: 0.52 },
-                { token: " Sydney", prob: 0.25 },
-                { token: " Melbourne", prob: 0.08 },
-                { token: " a", prob: 0.04 },
-                { token: " Can", prob: 0.03 }
-              ],
-              explanation: "The model 'knows' the answer is Canberra (52%), but Sydney gets 25%! Why? Because many people incorrectly think Sydney is the capital, and that misconception appears in training data too. The model's knowledge is a mirror of human text \u2014 errors and all."
-            }
-          ]
-        },
-        {
-          tokens: ["To", " be", " or", " not", " to", " be"],
-          predictions: [
-            {
-              afterIndex: 4,
-              options: [
-                { token: " be", prob: 0.96 },
-                { token: " mention", prob: 0.008 },
-                { token: " worry", prob: 0.005 },
-                { token: " say", prob: 0.004 },
-                { token: " do", prob: 0.003 }
-              ],
-              explanation: "Shakespeare is so deeply embedded in English-language text that this is nearly as certain as 'United States of America.' Famous quotes act like fixed phrases in the model's learned patterns."
-            }
-          ]
-        }
-      ]
-    },
-    {
-      title: "The Surprise Factor",
-      description: "The most interesting text uses unexpected words. Creative writing, humor, and plot twists all come from picking lower-probability tokens. This is where the 'temperature' setting matters.",
-      concept: "Low-probability tokens & temperature",
-      takeaway: "Creativity in AI-generated text comes from sampling lower-probability tokens. The 'temperature' setting controls this: low temperature picks safe, predictable tokens; high temperature picks surprising ones. It's the dial between boring-but-safe and creative-but-risky.",
-      sentences: [
-        {
-          tokens: ["The", " old", " man", " walked", " into", " the", " bar", " and", " ordered", " a", " glass", " of", " milk"],
-          predictions: [
-            {
-              afterIndex: 9,
-              options: [
-                { token: " beer", prob: 0.22 },
-                { token: " drink", prob: 0.18 },
-                { token: " glass", prob: 0.12 },
-                { token: " whiskey", prob: 0.10 },
-                { token: " coffee", prob: 0.04 }
-              ],
-              explanation: "The model predicts 'beer' or 'drink' because that's the most common pattern. But what if the actual text says 'milk'? That would only have ~2% probability. Surprising word choices make writing interesting \u2014 and they come from picking low-probability tokens."
-            },
-            {
-              afterIndex: 11,
-              options: [
-                { token: " milk", prob: 0.04 },
-                { token: " water", prob: 0.18 },
-                { token: " wine", prob: 0.25 },
-                { token: " whiskey", prob: 0.15 },
-                { token: " juice", prob: 0.08 }
-              ],
-              explanation: "After 'glass of,' wine and water dominate. 'milk' is only 4% \u2014 but that's what makes it funny or surprising in a bar scene. High temperature would make this pick more likely. This is the creative tradeoff: predictable vs. interesting."
-            }
-          ]
-        },
-        {
-          tokens: ["I", " told", " my", " computer", " I", " needed", " a", " break", " and", " it", " froze"],
-          predictions: [
-            {
-              afterIndex: 9,
-              options: [
-                { token: " said", prob: 0.15 },
-                { token: " crashed", prob: 0.08 },
-                { token: " froze", prob: 0.05 },
-                { token: " started", prob: 0.12 },
-                { token: " gave", prob: 0.09 }
-              ],
-              explanation: "'froze' is the punchline \u2014 it works both as a computer malfunction and a reaction to the word 'break.' At only 5% probability, the model wouldn't usually pick this. Humor often lives in these low-probability completions that make unexpected connections."
-            }
-          ]
-        }
-      ]
-    },
-    {
-      title: "The Full Chain",
-      description: "Now let's see the full picture. An LLM generates text by repeating this prediction process hundreds of times. Each token you pick changes what comes next. Let's follow a longer chain.",
-      concept: "Autoregressive generation",
-      takeaway: "Text generation is just this guessing game played thousands of times. Each token choice cascades forward, shaping all future predictions. That's all an LLM does: predict the next token, append it, and repeat. The magic is that this simple process, at scale, produces remarkably coherent text.",
-      sentences: [
-        {
-          tokens: ["In", " a", " hole", " in", " the", " ground", " there", " lived", " a", " hobbit"],
-          predictions: [
-            {
-              afterIndex: 1,
-              options: [
-                { token: " world", prob: 0.12 },
-                { token: " small", prob: 0.08 },
-                { token: " hole", prob: 0.06 },
-                { token: " land", prob: 0.09 },
-                { token: " recent", prob: 0.07 }
-              ],
-              explanation: "After just 'In a' \u2014 almost anything could follow. The model spreads probability across many options. We're at maximum uncertainty."
-            },
-            {
-              afterIndex: 5,
-              options: [
-                { token: " there", prob: 0.42 },
-                { token: ",", prob: 0.15 },
-                { token: " lived", prob: 0.10 },
-                { token: " that", prob: 0.06 },
-                { token: " a", prob: 0.04 }
-              ],
-              explanation: "Now with more context, 'there' becomes the clear favorite. The phrase 'in the ground there lived' is a recognizable literary pattern. Each new token narrows the possibilities."
-            },
-            {
-              afterIndex: 7,
-              options: [
-                { token: " a", prob: 0.65 },
-                { token: " an", prob: 0.10 },
-                { token: " the", prob: 0.05 },
-                { token: " no", prob: 0.03 },
-                { token: " something", prob: 0.02 }
-              ],
-              explanation: "After 'there lived,' the model strongly expects an article. 'a' dominates at 65%. The grammatical pattern is very constraining here."
-            },
-            {
-              afterIndex: 8,
-              options: [
-                { token: " hob", prob: 0.35 },
-                { token: " man", prob: 0.08 },
-                { token: " family", prob: 0.06 },
-                { token: " young", prob: 0.05 },
-                { token: " small", prob: 0.04 }
-              ],
-              explanation: "If you recognized Tolkien, you'd pick 'hob' (the start of 'hobbit'). The model knows this famous opening too \u2014 'hob' is the top prediction. Notice it's a subword token: 'hobbit' = 'hob' + 'bit'. Literature and tokenization in one prediction!"
-            }
-          ]
-        }
-      ]
-    }
-  ]
+    }]
+  }
+]}
 };
 
 // ==================== STATE ====================
+let lang = 'en';
+let gameData = null;
 const state = {
-  phase: 'TITLE',
-  round: 0,
-  sentence: 0,
-  prediction: 0,
-  score: 0,
-  streak: 0,
-  roundScore: 0,
-  roundCorrect: 0,
-  roundTotal: 0,
-  totalPredictions: 0,
-  completedPredictions: 0,
-  maxScore: 0,
+  round: 0, sentence: 0, prediction: 0,
+  score: 0, streak: 0,
+  roundScore: 0, roundCorrect: 0, roundTotal: 0,
+  totalPredictions: 0, completedPredictions: 0, maxScore: 0,
 };
 
-// Count total predictions
-GAME_DATA.rounds.forEach(r => r.sentences.forEach(s => {
-  state.totalPredictions += s.predictions.length;
-  s.predictions.forEach(p => state.maxScore += 100);
-}));
-
-// ==================== HELPERS ====================
 const $ = id => document.getElementById(id);
 const show = id => { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); $(id).classList.add('active'); };
 const delay = ms => new Promise(r => setTimeout(r, ms));
+const t = () => UI[lang];
 
-function getCurrentRound() { return GAME_DATA.rounds[state.round]; }
+function getCurrentRound() { return gameData.rounds[state.round]; }
 function getCurrentSentence() { return getCurrentRound().sentences[state.sentence]; }
 function getCurrentPrediction() { return getCurrentSentence().predictions[state.prediction]; }
 
-// ==================== GAME FLOW ====================
-function startGame() {
-  state.round = 0;
-  state.score = 0;
-  state.streak = 0;
+// ==================== INIT TITLE SCREEN ====================
+function initTitle() {
+  const langs = [
+    { code: 'en', flag: '\ud83c\uddec\ud83c\udde7', label: 'English' },
+    { code: 'de', flag: '\ud83c\udde9\ud83c\uddea', label: 'Deutsch' },
+    { code: 'fr', flag: '\ud83c\uddeb\ud83c\uddf7', label: 'Fran\u00e7ais' },
+    { code: 'it', flag: '\ud83c\uddee\ud83c\uddf9', label: 'Italiano' },
+  ];
+  const grid = $('lang-grid');
+  grid.innerHTML = '';
+  langs.forEach(l => {
+    const btn = document.createElement('button');
+    btn.className = 'lang-btn';
+    btn.innerHTML = `<span class="lang-flag">${l.flag}</span>${l.label}`;
+    btn.addEventListener('click', () => startWithLang(l.code));
+    grid.appendChild(btn);
+  });
+  updateTitleScreen();
+}
+
+function updateTitleScreen() {
+  $('title-heading').innerHTML = t().titleHeading;
+  const tokensEl = $('title-tokens');
+  tokensEl.innerHTML = '';
+  t().titleTokens.forEach((tk, i) => {
+    const span = document.createElement('span');
+    span.className = 'title-token';
+    span.textContent = tk;
+    if (i === t().titleTokens.length - 1) span.style.color = 'var(--accent)';
+    tokensEl.appendChild(span);
+  });
+  $('title-subtitle').textContent = t().subtitle;
+}
+
+function startWithLang(code) {
+  lang = code;
+  document.documentElement.lang = code;
+  gameData = GAME_DATA_ALL[code];
+
+  state.round = 0; state.score = 0; state.streak = 0;
   state.completedPredictions = 0;
+  state.totalPredictions = 0; state.maxScore = 0;
+  gameData.rounds.forEach(r => r.sentences.forEach(s => {
+    state.totalPredictions += s.predictions.length;
+    s.predictions.forEach(() => state.maxScore += 100);
+  }));
+
   showRoundIntro();
 }
 
+// ==================== GAME FLOW ====================
 function showRoundIntro() {
   const round = getCurrentRound();
-  $('intro-round-num').textContent = `Round ${state.round + 1} of ${GAME_DATA.rounds.length}`;
+  $('intro-round-num').textContent = t().roundN(state.round + 1, gameData.rounds.length);
   $('intro-title').textContent = round.title;
   $('intro-desc').textContent = round.description;
   $('intro-concept').textContent = round.concept;
+  $('btn-begin').textContent = t().begin;
   show('screen-round-intro');
 }
 
@@ -830,21 +2077,18 @@ function startRound() {
 }
 
 async function showPrediction() {
-  const round = getCurrentRound();
   const sentence = getCurrentSentence();
   const pred = getCurrentPrediction();
-
-  // Update header
   updateHeader();
 
-  // Clear areas
   $('sentence-area').innerHTML = '';
   $('options-area').innerHTML = '';
   $('explanation-area').classList.remove('visible');
   $('btn-continue').style.display = 'none';
   $('points-display').innerHTML = '';
+  $('explanation-label').textContent = t().howItWorks;
+  $('btn-continue').textContent = t().continue_;
 
-  // Animate tokens up to prediction point
   for (let i = 0; i <= pred.afterIndex; i++) {
     const span = document.createElement('span');
     span.className = 'token-span';
@@ -854,15 +2098,12 @@ async function showPrediction() {
     span.classList.add('visible');
   }
 
-  // Add blinking cursor
   const cursor = document.createElement('span');
   cursor.className = 'blank-cursor';
   $('sentence-area').appendChild(cursor);
 
-  // Show options
   await delay(300);
   const shuffled = pred.options.map((o, i) => ({ ...o, origIndex: i }));
-  // Shuffle options so the correct answer isn't always first
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
@@ -871,8 +2112,6 @@ async function showPrediction() {
   shuffled.forEach((opt, i) => {
     const row = document.createElement('div');
     row.className = 'option-row';
-    row.dataset.origIndex = opt.origIndex;
-    row.dataset.shuffleIndex = i;
     row.innerHTML = `
       <span class="option-key">${i + 1}</span>
       <span class="option-token">${opt.token}</span>
@@ -886,49 +2125,30 @@ async function showPrediction() {
     $('options-area').appendChild(row);
   });
 
-  // Update progress
   updateProgress();
 }
 
 function selectOption(row, chosen, allOptions) {
-  // Prevent double-click
   if (row.closest('.options-area').querySelector('.revealed')) return;
 
-  const pred = getCurrentPrediction();
-  const bestProb = pred.options[0].prob;
   const isCorrect = chosen.origIndex === 0;
-
-  // Calculate score
-  let points = 0;
-  let pointClass = 'bad';
+  let points = 0, pointClass = 'bad';
   if (isCorrect) {
-    points = 100;
-    pointClass = 'good';
-    state.streak++;
-    state.roundCorrect++;
+    points = 100; pointClass = 'good';
+    state.streak++; state.roundCorrect++;
   } else if (chosen.prob >= 0.10) {
-    points = 50;
-    pointClass = 'ok';
-    state.streak = 0;
+    points = 50; pointClass = 'ok'; state.streak = 0;
   } else if (chosen.prob >= 0.05) {
-    points = 25;
-    pointClass = 'ok';
-    state.streak = 0;
+    points = 25; pointClass = 'ok'; state.streak = 0;
   } else {
-    points = 5;
-    state.streak = 0;
+    points = 5; state.streak = 0;
   }
-
-  // Streak bonus
-  if (state.streak >= 3) {
-    points = Math.round(points * 1.5);
-  }
+  if (state.streak >= 3) points = Math.round(points * 1.5);
 
   state.score += points;
   state.roundScore += points;
   state.roundTotal++;
 
-  // Reveal all probability bars
   const rows = $('options-area').querySelectorAll('.option-row');
   rows.forEach((r, i) => {
     r.classList.add('revealed');
@@ -937,46 +2157,35 @@ function selectOption(row, chosen, allOptions) {
     const container = r.querySelector('.prob-bar-container');
     const label = r.querySelector('.prob-label');
     const icon = r.querySelector('.result-icon');
-
     container.classList.add('visible');
 
-    // Color the bars
     if (opt.origIndex === 0) {
       bar.style.background = 'var(--green)';
       r.classList.add('correct');
-      icon.textContent = '\u2713';
-      icon.style.color = 'var(--green)';
+      icon.textContent = '\u2713'; icon.style.color = 'var(--green)';
     } else {
       bar.style.background = 'var(--accent)';
     }
-
-    // Mark the chosen one
     if (r === row && !isCorrect) {
-      if (chosen.prob >= 0.05) {
-        r.classList.add('chosen-wrong');
-      } else {
-        r.classList.add('chosen-bad');
-      }
+      r.classList.add(chosen.prob >= 0.05 ? 'chosen-wrong' : 'chosen-bad');
       icon.textContent = '\u2717';
       icon.style.color = chosen.prob >= 0.05 ? 'var(--amber)' : 'var(--red)';
     }
-
     setTimeout(() => {
       bar.style.width = `${Math.max(opt.prob * 100, 2)}%`;
       label.classList.add('visible');
     }, i * 100 + 50);
   });
 
-  // Show explanation
+  const pred = getCurrentPrediction();
   setTimeout(() => {
     $('explanation-text').textContent = pred.explanation;
-    const streakText = state.streak >= 3 ? ` (1.5x streak bonus!)` : '';
-    $('points-display').innerHTML = `<span class="points-earned ${pointClass}">+${points} points${streakText}</span>`;
+    const streakText = state.streak >= 3 ? ` ${t().streakBonus}` : '';
+    $('points-display').innerHTML = `<span class="points-earned ${pointClass}">${t().points(points)}${streakText}</span>`;
     $('explanation-area').classList.add('visible');
     $('btn-continue').style.display = '';
   }, 600);
 
-  // Update score display
   $('play-score').textContent = state.score;
   updateStreakBadge();
 }
@@ -984,93 +2193,50 @@ function selectOption(row, chosen, allOptions) {
 function nextStep() {
   state.completedPredictions++;
   const sentence = getCurrentSentence();
-
-  // Next prediction in same sentence?
   if (state.prediction + 1 < sentence.predictions.length) {
-    state.prediction++;
-    showPrediction();
-    return;
+    state.prediction++; showPrediction(); return;
   }
-
-  // Next sentence in same round?
   const round = getCurrentRound();
   if (state.sentence + 1 < round.sentences.length) {
-    state.sentence++;
-    state.prediction = 0;
-    showPrediction();
-    return;
+    state.sentence++; state.prediction = 0; showPrediction(); return;
   }
-
-  // Round complete
   showRoundSummary();
 }
 
 function showRoundSummary() {
   const round = getCurrentRound();
-  $('summary-round-num').textContent = `Round ${state.round + 1} Complete`;
+  $('summary-round-num').textContent = t().roundComplete(state.round + 1);
   $('summary-score').textContent = `+${state.roundScore}`;
-  $('summary-breakdown').textContent = `${state.roundCorrect}/${state.roundTotal} top predictions \u00b7 Total: ${state.score} points`;
+  $('summary-breakdown').textContent = t().topPredictions(state.roundCorrect, state.roundTotal, state.score);
+  $('summary-takeaway-label').textContent = t().keyTakeaway;
   $('summary-takeaway').textContent = round.takeaway;
-
-  if (state.round + 1 >= GAME_DATA.rounds.length) {
-    $('btn-next-round').textContent = 'See Results';
-  } else {
-    $('btn-next-round').textContent = 'Next Round';
-  }
-
+  $('btn-next-round').textContent = state.round + 1 >= gameData.rounds.length ? t().seeResults : t().nextRound;
   show('screen-round-summary');
 }
 
 function nextRound() {
-  if (state.round + 1 >= GAME_DATA.rounds.length) {
-    showGameComplete();
-    return;
-  }
-  state.round++;
-  state.sentence = 0;
-  state.prediction = 0;
+  if (state.round + 1 >= gameData.rounds.length) { showGameComplete(); return; }
+  state.round++; state.sentence = 0; state.prediction = 0;
   showRoundIntro();
 }
 
 function showGameComplete() {
   const pct = state.score / state.maxScore;
-  let title, desc;
-  if (pct >= 0.9) {
-    title = 'Honorary LLM';
-    desc = "You predicted tokens like a language model! You've developed strong intuition for how context shapes predictions.";
-  } else if (pct >= 0.75) {
-    title = 'Token Whisperer';
-    desc = "Excellent pattern recognition. You clearly understand how LLMs use context to narrow down predictions.";
-  } else if (pct >= 0.5) {
-    title = 'Context Reader';
-    desc = "You've got a solid grasp of how predictions work. The key insight: it's all about probability distributions shaped by context.";
-  } else if (pct >= 0.25) {
-    title = 'Pattern Spotter';
-    desc = "You're starting to see the patterns. Remember: LLMs don't 'understand' \u2014 they calculate the most likely next token from patterns in training data.";
-  } else {
-    title = 'Random Guesser';
-    desc = "Predicting tokens is hard! But now you know how LLMs work: they play this exact guessing game, billions of times, using statistics from massive amounts of text.";
-  }
+  const idx = pct >= 0.9 ? 4 : pct >= 0.75 ? 3 : pct >= 0.5 ? 2 : pct >= 0.25 ? 1 : 0;
 
+  $('complete-heading').textContent = t().gameComplete;
   $('final-score').textContent = state.score;
-  $('final-title').textContent = title;
-  $('final-desc').textContent = desc;
+  $('final-title').textContent = t().titles[idx];
+  $('final-desc').textContent = t().titleDescs[idx];
+  $('btn-play-again').textContent = t().playAgain;
+  $('btn-share').textContent = t().copyScore;
 
-  // Concept cards
   const grid = $('concepts-grid');
   grid.innerHTML = '';
-  const concepts = [
-    ['Next-Token Prediction', 'LLMs generate text one token at a time, picking the most probable next piece.'],
-    ['Probability Distributions', 'Each prediction is a spread of probabilities across all possible tokens.'],
-    ['Subword Tokenization', 'Text is split into tokens \u2014 which can be words, punctuation, or word fragments.'],
-    ['Context Matters', 'Earlier tokens shape all future predictions through the attention mechanism.'],
-    ['Training Patterns', 'The model learned patterns from text, including clich\u00e9s, facts, and biases.'],
-    ['Temperature', 'Low = predictable text, high = creative/surprising text from lower-probability tokens.'],
-  ];
-  concepts.forEach(([t, d]) => {
+  t().concepts.forEach(([title, desc]) => {
     const card = document.createElement('div');
     card.className = 'concept-card';
-    card.innerHTML = `<div class="cc-title">${t}</div><div class="cc-desc">${d}</div>`;
+    card.innerHTML = `<div class="cc-title">${title}</div><div class="cc-desc">${desc}</div>`;
     grid.appendChild(card);
   });
 
@@ -1079,9 +2245,8 @@ function showGameComplete() {
 
 // ==================== UI HELPERS ====================
 function updateHeader() {
-  const round = getCurrentRound();
-  $('play-round-label').textContent = `Round ${state.round + 1} of ${GAME_DATA.rounds.length}`;
-  $('play-round-title').textContent = round.title;
+  $('play-round-label').textContent = t().roundN(state.round + 1, gameData.rounds.length);
+  $('play-round-title').textContent = getCurrentRound().title;
   $('play-score').textContent = state.score;
   updateStreakBadge();
 }
@@ -1089,27 +2254,22 @@ function updateHeader() {
 function updateStreakBadge() {
   const badge = $('streak-badge');
   if (state.streak >= 3) {
-    badge.style.display = '';
-    badge.textContent = `${state.streak} streak \u00d7 1.5`;
-  } else {
-    badge.style.display = 'none';
-  }
+    badge.style.display = ''; badge.textContent = `${state.streak} streak \u00d7 1.5`;
+  } else { badge.style.display = 'none'; }
 }
 
 function updateProgress() {
-  const pct = (state.completedPredictions / state.totalPredictions) * 100;
-  $('progress-fill').style.width = `${pct}%`;
-  $('progress-label').textContent = `Step ${state.completedPredictions + 1} of ${state.totalPredictions}`;
+  $('progress-fill').style.width = `${(state.completedPredictions / state.totalPredictions) * 100}%`;
+  $('progress-label').textContent = t().stepN(state.completedPredictions + 1, state.totalPredictions);
 }
 
 function shareScore() {
   const pct = state.score / state.maxScore;
-  let title = pct >= 0.9 ? 'Honorary LLM' : pct >= 0.75 ? 'Token Whisperer' : pct >= 0.5 ? 'Context Reader' : pct >= 0.25 ? 'Pattern Spotter' : 'Random Guesser';
-  const text = `Guess the Next Token \ud83c\udfaf\nI scored ${state.score} points \u2014 "${title}"\nLearn how LLMs work by playing!`;
-  navigator.clipboard.writeText(text).then(() => {
-    const btn = event.target;
-    btn.textContent = 'Copied!';
-    setTimeout(() => btn.textContent = 'Copy Score', 2000);
+  const idx = pct >= 0.9 ? 4 : pct >= 0.75 ? 3 : pct >= 0.5 ? 2 : pct >= 0.25 ? 1 : 0;
+  navigator.clipboard.writeText(t().shareText(state.score, t().titles[idx])).then(() => {
+    const btn = $('btn-share');
+    btn.textContent = t().copied;
+    setTimeout(() => btn.textContent = t().copyScore, 2000);
   });
 }
 
@@ -1118,18 +2278,11 @@ document.addEventListener('keydown', e => {
   if (e.key >= '1' && e.key <= '5') {
     const rows = $('options-area').querySelectorAll('.option-row');
     const idx = parseInt(e.key) - 1;
-    if (idx < rows.length && !rows[0].classList.contains('revealed')) {
-      rows[idx].click();
-    }
+    if (idx < rows.length && !rows[0]?.classList.contains('revealed')) rows[idx].click();
   }
   if (e.key === 'Enter' || e.key === ' ') {
     const cont = $('btn-continue');
-    if (cont.style.display !== 'none') {
-      e.preventDefault();
-      cont.click();
-      return;
-    }
-    // Check other screens
+    if (cont.style.display !== 'none') { e.preventDefault(); cont.click(); return; }
     const active = document.querySelector('.screen.active');
     if (active) {
       const btn = active.querySelector('.btn-primary');
@@ -1137,6 +2290,8 @@ document.addEventListener('keydown', e => {
     }
   }
 });
+
+initTitle();
 </script>
 </body>
 </html>
