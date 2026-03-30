@@ -59,21 +59,47 @@
   /* Tokenizer area */
   .instruction { color:var(--text-dim); font-size:0.9rem; margin-bottom:12px; text-align:center; }
   .text-area {
-    background: var(--bg-card); border-radius: var(--radius); padding: 28px 24px;
+    background: var(--bg-card); border-radius: var(--radius); padding: 20px 12px;
     margin-bottom: 16px; min-height: 80px;
     font-family: 'SF Mono','Fira Code','Consolas',monospace;
-    font-size: 1.3rem; line-height: 2.2;
-    display: flex; flex-wrap: wrap; align-items: baseline;
-    user-select: none; position: relative;
+    font-size: 1.25rem; line-height: 1;
+    display: flex; flex-wrap: wrap; align-items: stretch;
+    user-select: none; position: relative; gap: 0;
   }
-  .char-unit { position:relative; display:inline; cursor:pointer; padding:4px 0; }
-  .char-unit .char-text { position:relative; z-index:1; }
-  .split-marker {
-    position: absolute; top: 2px; bottom: 2px; width: 3px; left: -1.5px;
-    background: var(--accent); border-radius: 2px; z-index: 2;
+  .char-span {
+    padding: 10px 2px;
+    white-space: pre;
+  }
+  .gap-btn {
+    width: 20px; min-width: 20px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; position: relative;
+    border-radius: 4px;
+    transition: background 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .gap-btn:hover { background: rgba(99,102,241,0.1); }
+  .gap-btn::before {
+    content: '';
+    width: 2px; height: 60%;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.08);
+    transition: all 0.15s;
+  }
+  .gap-btn:hover::before { background: rgba(99,102,241,0.4); height: 80%; }
+  .gap-btn.active { background: rgba(99,102,241,0.15); }
+  .gap-btn.active::before {
+    width: 3px; height: 90%;
+    background: var(--accent);
+    box-shadow: 0 0 8px rgba(99,102,241,0.5);
     animation: markerPop 0.2s ease-out;
   }
   @keyframes markerPop { from { transform:scaleY(0); } to { transform:scaleY(1); } }
+
+  @media (max-width:500px) {
+    .gap-btn { width: 28px; min-width: 28px; }
+    .text-area { padding: 16px 8px; font-size: 1.1rem; }
+  }
 
   /* Revealed tokens */
   .revealed-area {
@@ -160,7 +186,6 @@
 
   @media (max-width:500px) {
     #screen-title h1 { font-size:1.8rem; }
-    .text-area { font-size:1.1rem; padding:20px 16px; }
     .concepts-grid { grid-template-columns:1fr; }
     .lang-grid { grid-template-columns:1fr; max-width:240px; }
   }
@@ -701,17 +726,23 @@ function showChallenge() {
   $('submit-row').style.display = 'flex';
   state.userSplits = new Set();
 
-  // Build character grid
+  // Build character grid with tap-friendly gap buttons
   const area = $('text-area');
   area.innerHTML = '';
   const text = ch.text;
   for (let i = 0; i < text.length; i++) {
-    const unit = document.createElement('span');
-    unit.className = 'char-unit';
-    unit.dataset.index = i;
-    unit.innerHTML = `<span class="char-text">${escHtml(text[i])}</span>`;
-    unit.addEventListener('click', (e) => toggleSplit(i, e));
-    area.appendChild(unit);
+    // Gap button before this character (not before first)
+    if (i > 0) {
+      const gap = document.createElement('div');
+      gap.className = 'gap-btn';
+      gap.dataset.splitAt = i;
+      gap.addEventListener('click', () => toggleGap(gap, i));
+      area.appendChild(gap);
+    }
+    const span = document.createElement('span');
+    span.className = 'char-span';
+    span.textContent = text[i];
+    area.appendChild(span);
   }
 
   updateProgress();
@@ -721,43 +752,19 @@ function escHtml(c) {
   return c.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-function toggleSplit(charIndex, e) {
-  if (charIndex === 0) return; // Can't split before first char
-  const rect = e.currentTarget.getBoundingClientRect();
-  const clickX = e.clientX - rect.left;
-  const isLeftHalf = clickX < rect.width / 2;
-
-  // If clicking left half, split before this char; right half, split after
-  const splitAt = isLeftHalf ? charIndex : charIndex + 1;
-  if (splitAt === 0 || splitAt >= getCurChallenge().text.length) return;
-
+function toggleGap(gapEl, splitAt) {
   if (state.userSplits.has(splitAt)) {
     state.userSplits.delete(splitAt);
-    removeSplitMarker(splitAt);
+    gapEl.classList.remove('active');
   } else {
     state.userSplits.add(splitAt);
-    addSplitMarker(splitAt);
+    gapEl.classList.add('active');
   }
-}
-
-function addSplitMarker(charIndex) {
-  removeSplitMarker(charIndex); // Prevent duplicates
-  const unit = $('text-area').querySelector(`[data-index="${charIndex}"]`);
-  if (!unit) return;
-  const marker = document.createElement('div');
-  marker.className = 'split-marker';
-  marker.dataset.splitAt = charIndex;
-  unit.appendChild(marker);
-}
-
-function removeSplitMarker(charIndex) {
-  const marker = $('text-area').querySelector(`.split-marker[data-split-at="${charIndex}"]`);
-  if (marker) marker.remove();
 }
 
 function clearSplits() {
   state.userSplits.clear();
-  $('text-area').querySelectorAll('.split-marker').forEach(m => m.remove());
+  $('text-area').querySelectorAll('.gap-btn').forEach(g => g.classList.remove('active'));
 }
 
 function submitSplits() {
