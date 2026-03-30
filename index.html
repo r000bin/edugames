@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guess the Next Token</title>
+<style>
+  :root {
+    --bg: #0f1729;
+    --bg-card: #1a2340;
+    --bg-hover: #243056;
+    --text: #e2e8f0;
+    --text-dim: #8892a8;
+    --accent: #6366f1;
+    --accent-glow: rgba(99,102,241,0.3);
+    --green: #22c55e;
+    --green-bg: rgba(34,197,94,0.15);
+    --amber: #f59e0b;
+    --amber-bg: rgba(245,158,11,0.15);
+    --red: #ef4444;
+    --red-bg: rgba(239,68,68,0.15);
+    --radius: 10px;
+    --max-w: 660px;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 16px;
+  }
+  .screen { display:none; flex-direction:column; width:100%; max-width:var(--max-w); }
+  .screen.active { display:flex; }
+  button {
+    font-family: inherit;
+    cursor: pointer;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 1rem;
+    transition: all 0.2s;
+  }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+    padding: 14px 32px;
+    font-size: 1.1rem;
+    font-weight: 600;
+  }
+  .btn-primary:hover { filter: brightness(1.15); transform: translateY(-1px); }
+
+  /* Title Screen */
+  #screen-title { align-items:center; justify-content:center; text-align:center; gap:24px; min-height:80vh; }
+  #screen-title h1 { font-size:2.4rem; font-weight:800; line-height:1.2; }
+  #screen-title h1 span { color:var(--accent); }
+  #screen-title .subtitle { color:var(--text-dim); font-size:1.1rem; max-width:480px; line-height:1.6; }
+  .title-tokens { display:flex; gap:6px; justify-content:center; flex-wrap:wrap; margin:8px 0; }
+  .title-token {
+    background: var(--bg-card);
+    border: 1px solid rgba(99,102,241,0.3);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.95rem;
+  }
+
+  /* Header */
+  .game-header {
+    display:flex; justify-content:space-between; align-items:center;
+    padding: 12px 0; margin-bottom: 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .game-header .round-label { color:var(--text-dim); font-size:0.9rem; }
+  .game-header .round-title { font-weight:700; font-size:1rem; }
+  .game-header .score { font-size:1.1rem; font-weight:700; color:var(--accent); }
+  .streak-badge {
+    display:inline-block; background:var(--amber); color:#000; font-size:0.75rem;
+    font-weight:700; padding:2px 8px; border-radius:99px; margin-left:8px;
+  }
+
+  /* Sentence Area */
+  .sentence-area {
+    background: var(--bg-card);
+    border-radius: var(--radius);
+    padding: 24px;
+    min-height: 80px;
+    margin-bottom: 20px;
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 1.2rem;
+    line-height: 1.8;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+  }
+  .token-span {
+    opacity: 0;
+    transition: opacity 0.3s;
+    padding: 2px 0;
+  }
+  .token-span.visible { opacity:1; }
+  .token-span.highlight {
+    background: rgba(99,102,241,0.2);
+    border-radius: 4px;
+    padding: 2px 4px;
+    margin: 0 -4px;
+  }
+  .blank-cursor {
+    display: inline-block;
+    width: 2px; height: 1.3em;
+    background: var(--accent);
+    margin-left: 2px;
+    animation: blink 1s step-end infinite;
+    vertical-align: text-bottom;
+  }
+  @keyframes blink { 50% { opacity:0; } }
+
+  /* Options */
+  .options-area { display:flex; flex-direction:column; gap:8px; margin-bottom:20px; }
+  .option-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--bg-card);
+    border: 2px solid transparent;
+    border-radius: var(--radius);
+    padding: 0;
+    overflow: hidden;
+    transition: all 0.2s;
+    cursor: pointer;
+  }
+  .option-row:hover:not(.revealed) { background:var(--bg-hover); border-color:rgba(99,102,241,0.3); }
+  .option-row.revealed { cursor:default; }
+  .option-key {
+    width:36px; min-width:36px; text-align:center;
+    font-size:0.8rem; color:var(--text-dim); font-weight:600;
+    padding: 14px 0;
+  }
+  .option-token {
+    font-family: 'SF Mono','Fira Code','Consolas', monospace;
+    font-size: 1rem;
+    font-weight: 600;
+    min-width: 100px;
+    padding: 14px 8px;
+    white-space: pre;
+  }
+  .prob-bar-container {
+    flex: 1;
+    height: 28px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 6px;
+    overflow: hidden;
+    margin-right: 12px;
+    position: relative;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .prob-bar-container.visible { opacity:1; }
+  .prob-bar {
+    height: 100%;
+    border-radius: 6px;
+    width: 0%;
+    transition: width 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+    display: flex;
+    align-items: center;
+    padding-left: 8px;
+  }
+  .prob-label {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.85rem;
+    font-weight: 600;
+    opacity: 0;
+    transition: opacity 0.3s 0.5s;
+  }
+  .prob-label.visible { opacity:1; }
+  .option-row.correct { border-color: var(--green); background: var(--green-bg); }
+  .option-row.chosen-wrong { border-color: var(--amber); background: var(--amber-bg); }
+  .option-row.chosen-bad { border-color: var(--red); background: var(--red-bg); }
+  .option-row .result-icon {
+    font-size: 1.2rem;
+    margin-right: 8px;
+    opacity: 0;
+    transition: opacity 0.3s 0.3s;
+  }
+  .option-row.revealed .result-icon { opacity:1; }
+
+  /* Explanation */
+  .explanation-area {
+    background: rgba(99,102,241,0.08);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: all 0.4s;
+  }
+  .explanation-area.visible { opacity:1; transform:translateY(0); }
+  .explanation-area .label { font-weight:700; color:var(--accent); margin-bottom:4px; font-size:0.85rem; text-transform:uppercase; letter-spacing:0.05em; }
+  .points-earned {
+    display:inline-block; font-weight:700; font-size:0.9rem;
+    padding:4px 12px; border-radius:99px; margin-top:8px;
+  }
+  .points-earned.good { background:var(--green-bg); color:var(--green); }
+  .points-earned.ok { background:var(--amber-bg); color:var(--amber); }
+  .points-earned.bad { background:var(--red-bg); color:var(--red); }
+
+  /* Continue button area */
+  .continue-area { display:flex; justify-content:center; padding:8px 0 16px; }
+
+  /* Progress */
+  .progress-area { margin-top:auto; padding-top:16px; }
+  .progress-bar-bg {
+    height:6px; background:rgba(255,255,255,0.06); border-radius:3px; overflow:hidden;
+  }
+  .progress-bar-fill {
+    height:100%; background:var(--accent); border-radius:3px;
+    transition: width 0.4s ease-out;
+  }
+  .progress-label { text-align:center; font-size:0.8rem; color:var(--text-dim); margin-top:6px; }
+
+  /* Round Intro */
+  #screen-round-intro { align-items:center; justify-content:center; text-align:center; gap:20px; min-height:60vh; }
+  #screen-round-intro .round-num { color:var(--accent); font-size:0.9rem; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; }
+  #screen-round-intro h2 { font-size:1.8rem; font-weight:800; }
+  #screen-round-intro .round-desc { color:var(--text-dim); font-size:1.05rem; max-width:480px; line-height:1.6; }
+  .concept-badge {
+    display:inline-block; background:rgba(99,102,241,0.15); color:var(--accent);
+    padding:6px 16px; border-radius:99px; font-size:0.85rem; font-weight:600;
+  }
+
+  /* Round Summary */
+  #screen-round-summary { align-items:center; justify-content:center; text-align:center; gap:20px; min-height:60vh; }
+  .summary-score { font-size:2.5rem; font-weight:800; color:var(--accent); }
+  .summary-breakdown { color:var(--text-dim); font-size:0.95rem; }
+  .takeaway-box {
+    background: var(--bg-card);
+    border: 1px solid rgba(99,102,241,0.2);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    max-width: 480px;
+    text-align: left;
+    line-height: 1.6;
+  }
+  .takeaway-box .takeaway-label { font-weight:700; color:var(--accent); font-size:0.85rem; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:8px; }
+
+  /* Game Complete */
+  #screen-complete { align-items:center; justify-content:center; text-align:center; gap:20px; min-height:80vh; }
+  #screen-complete h2 { font-size:2rem; font-weight:800; }
+  .final-score { font-size:3rem; font-weight:800; color:var(--accent); }
+  .final-title {
+    font-size:1.3rem; font-weight:700;
+    padding:8px 24px; border-radius:99px;
+    background:rgba(99,102,241,0.15); color:var(--accent);
+  }
+  .concepts-grid {
+    display:grid; grid-template-columns:1fr 1fr; gap:10px;
+    max-width:480px; width:100%; text-align:left;
+  }
+  .concept-card {
+    background:var(--bg-card); border-radius:var(--radius); padding:12px 16px;
+  }
+  .concept-card .cc-title { font-weight:700; font-size:0.85rem; margin-bottom:4px; }
+  .concept-card .cc-desc { font-size:0.8rem; color:var(--text-dim); line-height:1.4; }
+  .btn-secondary {
+    background:var(--bg-card); color:var(--text); padding:12px 24px;
+    border:1px solid rgba(255,255,255,0.1); font-weight:600;
+  }
+  .btn-secondary:hover { background:var(--bg-hover); }
+
+  @media (max-width:500px) {
+    #screen-title h1 { font-size:1.8rem; }
+    .sentence-area { font-size:1rem; padding:16px; }
+    .option-token { min-width:70px; font-size:0.9rem; }
+    .concepts-grid { grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Title Screen -->
+<div id="screen-title" class="screen active">
+  <h1>Guess the<br><span>Next Token</span></h1>
+  <div class="title-tokens">
+    <span class="title-token">The</span>
+    <span class="title-token">cat</span>
+    <span class="title-token">sat</span>
+    <span class="title-token" style="color:var(--accent)">???</span>
+  </div>
+  <p class="subtitle">
+    Large Language Models generate text by predicting one token at a time.
+    Step into the role of an LLM and see if you can guess what comes next.
+    No AI knowledge required!
+  </p>
+  <button class="btn-primary" onclick="startGame()">Start Playing</button>
+</div>
+
+<!-- Round Intro -->
+<div id="screen-round-intro" class="screen">
+  <span class="round-num" id="intro-round-num"></span>
+  <h2 id="intro-title"></h2>
+  <p class="round-desc" id="intro-desc"></p>
+  <span class="concept-badge" id="intro-concept"></span>
+  <button class="btn-primary" onclick="startRound()">Begin</button>
+</div>
+
+<!-- Game Play -->
+<div id="screen-play" class="screen">
+  <div class="game-header">
+    <div>
+      <div class="round-label" id="play-round-label"></div>
+      <div class="round-title" id="play-round-title"></div>
+    </div>
+    <div>
+      <span class="score" id="play-score">0</span>
+      <span class="streak-badge" id="streak-badge" style="display:none"></span>
+    </div>
+  </div>
+  <div class="sentence-area" id="sentence-area"></div>
+  <div class="options-area" id="options-area"></div>
+  <div class="explanation-area" id="explanation-area">
+    <div class="label">How it works</div>
+    <p id="explanation-text"></p>
+    <div id="points-display"></div>
+  </div>
+  <div class="continue-area">
+    <button class="btn-primary" id="btn-continue" style="display:none" onclick="nextStep()">Continue</button>
+  </div>
+  <div class="progress-area">
+    <div class="progress-bar-bg"><div class="progress-bar-fill" id="progress-fill"></div></div>
+    <div class="progress-label" id="progress-label"></div>
+  </div>
+</div>
+
+<!-- Round Summary -->
+<div id="screen-round-summary" class="screen">
+  <span class="round-num" id="summary-round-num"></span>
+  <div class="summary-score" id="summary-score"></div>
+  <div class="summary-breakdown" id="summary-breakdown"></div>
+  <div class="takeaway-box">
+    <div class="takeaway-label">Key Takeaway</div>
+    <p id="summary-takeaway"></p>
+  </div>
+  <button class="btn-primary" id="btn-next-round" onclick="nextRound()">Next Round</button>
+</div>
+
+<!-- Game Complete -->
+<div id="screen-complete" class="screen">
+  <h2>Game Complete!</h2>
+  <div class="final-score" id="final-score"></div>
+  <div class="final-title" id="final-title"></div>
+  <p style="color:var(--text-dim);max-width:480px;line-height:1.6" id="final-desc"></p>
+  <div class="concepts-grid" id="concepts-grid"></div>
+  <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
+    <button class="btn-primary" onclick="location.reload()">Play Again</button>
+    <button class="btn-secondary" onclick="shareScore()">Copy Score</button>
+  </div>
+</div>
+
+<script>
+// ==================== GAME DATA ====================
+const GAME_DATA = {
+  rounds: [
+    {
+      title: "The Obvious Next Word",
+      description: "Some predictions are nearly certain. When context leaves only one reasonable option, the model assigns almost all probability to a single token.",
+      concept: "High-confidence predictions",
+      takeaway: "When context is highly constraining, an LLM becomes very confident. Almost all probability mass lands on a single token. These are the 'easy' predictions.",
+      sentences: [
+        {
+          tokens: ["The", " United", " States", " of", " America"],
+          predictions: [
+            {
+              afterIndex: 3,
+              options: [
+                { token: " America", prob: 0.97 },
+                { token: " the", prob: 0.01 },
+                { token: " Am", prob: 0.008 },
+                { token: " A", prob: 0.005 },
+                { token: " North", prob: 0.003 }
+              ],
+              explanation: "This is almost certain. 'The United States of' has essentially one completion in English. The model assigns 97% probability to 'America.' This is a high-confidence prediction."
+            }
+          ]
+        },
+        {
+          tokens: ["Once", " upon", " a", " time", ",", " there"],
+          predictions: [
+            {
+              afterIndex: 2,
+              options: [
+                { token: " time", prob: 0.92 },
+                { token: " day", prob: 0.03 },
+                { token: " hill", prob: 0.01 },
+                { token: " place", prob: 0.01 },
+                { token: " girl", prob: 0.008 }
+              ],
+              explanation: "'Once upon a...' is one of the most recognizable phrases in English. The model has seen this pattern thousands of times in its training data, making 'time' an overwhelming favorite."
+            },
+            {
+              afterIndex: 4,
+              options: [
+                { token: " there", prob: 0.35 },
+                { token: " in", prob: 0.18 },
+                { token: " a", prob: 0.12 },
+                { token: " the", prob: 0.08 },
+                { token: " long", prob: 0.05 }
+              ],
+              explanation: "After the comma, things open up. 'there' is the favorite (the classic 'there was/lived'), but 'in a land far away' is also common. Notice how the probabilities are more spread out now."
+            }
+          ]
+        },
+        {
+          tokens: ["She", " opened", " the", " door", " and", " walked", " in"],
+          predictions: [
+            {
+              afterIndex: 5,
+              options: [
+                { token: " in", prob: 0.31 },
+                { token: " out", prob: 0.24 },
+                { token: " into", prob: 0.15 },
+                { token: " away", prob: 0.10 },
+                { token: " over", prob: 0.06 }
+              ],
+              explanation: "'in' and 'out' are both very reasonable after 'opened the door and walked.' The model gives them similar probabilities. This is an example of genuine ambiguity \u2014 there's no single right answer."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      title: "When the Model Isn't Sure",
+      description: "Sometimes many tokens are equally plausible. The probability gets spread thin across many options. This is where 'randomness' in AI text comes from.",
+      concept: "Flat probability distributions",
+      takeaway: "When probabilities are spread evenly, the model is genuinely uncertain. Small random choices here lead to wildly different outputs. This is why you get different answers each time you ask an LLM the same question.",
+      sentences: [
+        {
+          tokens: ["For", " dinner", " tonight", " I", "'m", " making"],
+          predictions: [
+            {
+              afterIndex: 5,
+              options: [
+                { token: " a", prob: 0.14 },
+                { token: " chicken", prob: 0.08 },
+                { token: " pasta", prob: 0.07 },
+                { token: " some", prob: 0.06 },
+                { token: " steak", prob: 0.04 }
+              ],
+              explanation: "So many foods could come next! The model spreads probability across dozens of options. No single token gets more than 14%. This flat distribution is the opposite of 'United States of America.'"
+            }
+          ]
+        },
+        {
+          tokens: ["The", " meaning", " of", " life", " is"],
+          predictions: [
+            {
+              afterIndex: 4,
+              options: [
+                { token: " to", prob: 0.14 },
+                { token: " a", prob: 0.11 },
+                { token: " not", prob: 0.07 },
+                { token: " the", prob: 0.06 },
+                { token: " something", prob: 0.04 }
+              ],
+              explanation: "Philosophy is hard for humans AND models. The model hedges its bets across many possible continuations. 'to find meaning,' 'a mystery,' 'not something you find' \u2014 all are plausible, so none gets high probability."
+            }
+          ]
+        },
+        {
+          tokens: ["The", " weather", " today", " is", " really"],
+          predictions: [
+            {
+              afterIndex: 4,
+              options: [
+                { token: " good", prob: 0.09 },
+                { token: " nice", prob: 0.08 },
+                { token: " bad", prob: 0.07 },
+                { token: " hot", prob: 0.06 },
+                { token: " cold", prob: 0.05 }
+              ],
+              explanation: "Weather could be anything! The model has no way to know the actual weather, so it distributes probability almost evenly across positive and negative descriptions. It's not 'thinking' \u2014 it's just reflecting patterns from text."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      title: "Tokens Aren't Words",
+      description: "LLMs don't predict words \u2014 they predict tokens. A token might be a whole word, part of a word, a punctuation mark, or even just a space. This is one of the most surprising things about how they work.",
+      concept: "Subword tokenization",
+      takeaway: "LLMs break text into tokens, not words. Punctuation, word fragments, and spaces are all separate tokens. This is why AI sometimes struggles with spelling, counting letters, or handling unusual words.",
+      sentences: [
+        {
+          tokens: ["The", " CEO", " announced", ",", " \"", "We"],
+          predictions: [
+            {
+              afterIndex: 3,
+              options: [
+                { token: " \"", prob: 0.72 },
+                { token: " that", prob: 0.10 },
+                { token: " a", prob: 0.05 },
+                { token: " the", prob: 0.04 },
+                { token: " today", prob: 0.02 }
+              ],
+              explanation: "Surprise! The next token is a quotation mark, not a word. After 'announced,' the model strongly expects a direct quote. Punctuation marks are tokens too \u2014 the model predicts them just like it predicts words."
+            }
+          ]
+        },
+        {
+          tokens: ["She", " works", " at", " Micro", "soft"],
+          predictions: [
+            {
+              afterIndex: 3,
+              options: [
+                { token: "soft", prob: 0.95 },
+                { token: "scope", prob: 0.01 },
+                { token: "chip", prob: 0.005 },
+                { token: "wave", prob: 0.004 },
+                { token: "phone", prob: 0.003 }
+              ],
+              explanation: "'Micro' isn't a complete word here \u2014 it's a subword token. The model tokenized 'Microsoft' as two pieces: 'Micro' + 'soft'. It knows with 95% confidence that 'soft' completes this token. This is called subword tokenization (BPE)."
+            }
+          ]
+        },
+        {
+          tokens: ["I", " have", " 3", ",", "000", " reasons"],
+          predictions: [
+            {
+              afterIndex: 3,
+              options: [
+                { token: "000", prob: 0.48 },
+                { token: "500", prob: 0.12 },
+                { token: "00", prob: 0.08 },
+                { token: "0", prob: 0.05 },
+                { token: "200", prob: 0.04 }
+              ],
+              explanation: "Numbers get tokenized in surprising ways. '3,000' becomes three tokens: '3' + ',' + '000'. The model has to predict each digit group separately. This is why LLMs sometimes struggle with math \u2014 they process numbers as text fragments, not quantities."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      title: "Context Is Everything",
+      description: "The same word can lead to completely different predictions depending on what came before it. LLMs use the entire preceding context to make their guess.",
+      concept: "Context-dependent predictions",
+      takeaway: "Every token in the context matters. The same word produces completely different probability distributions depending on surrounding words. This is the power of the 'attention' mechanism \u2014 the model considers the full context for every prediction.",
+      sentences: [
+        {
+          tokens: ["The", " bank", " of", " the", " river", " was", " steep"],
+          predictions: [
+            {
+              afterIndex: 5,
+              options: [
+                { token: " steep", prob: 0.14 },
+                { token: " covered", prob: 0.12 },
+                { token: " muddy", prob: 0.10 },
+                { token: " dry", prob: 0.08 },
+                { token: " lined", prob: 0.07 }
+              ],
+              explanation: "After 'The bank of the river was,' the model predicts terrain descriptions. 'river' earlier in the sentence told the model we're talking about a riverbank, not a financial bank. Context resolved the ambiguity."
+            }
+          ]
+        },
+        {
+          tokens: ["The", " bank", " approved", " the", " loan", " application"],
+          predictions: [
+            {
+              afterIndex: 4,
+              options: [
+                { token: " application", prob: 0.22 },
+                { token: ".", prob: 0.18 },
+                { token: " request", prob: 0.12 },
+                { token: " for", prob: 0.10 },
+                { token: ",", prob: 0.08 }
+              ],
+              explanation: "Same word 'bank,' totally different predictions. 'approved' told the model we're in financial territory. Notice the period is a likely token \u2014 the sentence could naturally end here. Same starting word, different world."
+            }
+          ]
+        },
+        {
+          tokens: ["I", " love", " Python", " because", " it", "'s", " so", " easy"],
+          predictions: [
+            {
+              afterIndex: 6,
+              options: [
+                { token: " easy", prob: 0.18 },
+                { token: " simple", prob: 0.14 },
+                { token: " readable", prob: 0.10 },
+                { token: " versatile", prob: 0.08 },
+                { token: " elegant", prob: 0.07 }
+              ],
+              explanation: "The model knows 'Python' in this context means the programming language (because of 'love' and 'because it's so'). If the sentence started with 'I saw a Python,' predictions would be about snakes instead. Context shapes everything."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      title: "Patterns & Clich\u00e9s",
+      description: "LLMs learn from vast amounts of text. They pick up on common phrases, clich\u00e9s, and cultural patterns. Sometimes this means they're very predictable \u2014 and sometimes it reveals surprising biases.",
+      concept: "Training data patterns",
+      takeaway: "LLMs don't 'know' facts \u2014 they've learned statistical patterns from text. Common phrases get high confidence. Factual knowledge is encoded as probability, not understanding. And the patterns in training data, including human biases, show up in the model's predictions.",
+      sentences: [
+        {
+          tokens: ["It", " was", " a", " dark", " and", " stormy", " night"],
+          predictions: [
+            {
+              afterIndex: 5,
+              options: [
+                { token: " night", prob: 0.94 },
+                { token: " day", prob: 0.02 },
+                { token: " evening", prob: 0.01 },
+                { token: " sea", prob: 0.005 },
+                { token: " winter", prob: 0.003 }
+              ],
+              explanation: "The most famous opening line clich\u00e9 in English! The model has seen this phrase so many times that it's 94% confident. Clich\u00e9s and famous quotes create extremely high-confidence predictions because they appear so often in training data."
+            }
+          ]
+        },
+        {
+          tokens: ["The", " capital", " of", " Australia", " is", " Canberra"],
+          predictions: [
+            {
+              afterIndex: 4,
+              options: [
+                { token: " Canberra", prob: 0.52 },
+                { token: " Sydney", prob: 0.25 },
+                { token: " Melbourne", prob: 0.08 },
+                { token: " a", prob: 0.04 },
+                { token: " Can", prob: 0.03 }
+              ],
+              explanation: "The model 'knows' the answer is Canberra (52%), but Sydney gets 25%! Why? Because many people incorrectly think Sydney is the capital, and that misconception appears in training data too. The model's knowledge is a mirror of human text \u2014 errors and all."
+            }
+          ]
+        },
+        {
+          tokens: ["To", " be", " or", " not", " to", " be"],
+          predictions: [
+            {
+              afterIndex: 4,
+              options: [
+                { token: " be", prob: 0.96 },
+                { token: " mention", prob: 0.008 },
+                { token: " worry", prob: 0.005 },
+                { token: " say", prob: 0.004 },
+                { token: " do", prob: 0.003 }
+              ],
+              explanation: "Shakespeare is so deeply embedded in English-language text that this is nearly as certain as 'United States of America.' Famous quotes act like fixed phrases in the model's learned patterns."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      title: "The Surprise Factor",
+      description: "The most interesting text uses unexpected words. Creative writing, humor, and plot twists all come from picking lower-probability tokens. This is where the 'temperature' setting matters.",
+      concept: "Low-probability tokens & temperature",
+      takeaway: "Creativity in AI-generated text comes from sampling lower-probability tokens. The 'temperature' setting controls this: low temperature picks safe, predictable tokens; high temperature picks surprising ones. It's the dial between boring-but-safe and creative-but-risky.",
+      sentences: [
+        {
+          tokens: ["The", " old", " man", " walked", " into", " the", " bar", " and", " ordered", " a", " glass", " of", " milk"],
+          predictions: [
+            {
+              afterIndex: 9,
+              options: [
+                { token: " beer", prob: 0.22 },
+                { token: " drink", prob: 0.18 },
+                { token: " glass", prob: 0.12 },
+                { token: " whiskey", prob: 0.10 },
+                { token: " coffee", prob: 0.04 }
+              ],
+              explanation: "The model predicts 'beer' or 'drink' because that's the most common pattern. But what if the actual text says 'milk'? That would only have ~2% probability. Surprising word choices make writing interesting \u2014 and they come from picking low-probability tokens."
+            },
+            {
+              afterIndex: 11,
+              options: [
+                { token: " milk", prob: 0.04 },
+                { token: " water", prob: 0.18 },
+                { token: " wine", prob: 0.25 },
+                { token: " whiskey", prob: 0.15 },
+                { token: " juice", prob: 0.08 }
+              ],
+              explanation: "After 'glass of,' wine and water dominate. 'milk' is only 4% \u2014 but that's what makes it funny or surprising in a bar scene. High temperature would make this pick more likely. This is the creative tradeoff: predictable vs. interesting."
+            }
+          ]
+        },
+        {
+          tokens: ["I", " told", " my", " computer", " I", " needed", " a", " break", " and", " it", " froze"],
+          predictions: [
+            {
+              afterIndex: 9,
+              options: [
+                { token: " said", prob: 0.15 },
+                { token: " crashed", prob: 0.08 },
+                { token: " froze", prob: 0.05 },
+                { token: " started", prob: 0.12 },
+                { token: " gave", prob: 0.09 }
+              ],
+              explanation: "'froze' is the punchline \u2014 it works both as a computer malfunction and a reaction to the word 'break.' At only 5% probability, the model wouldn't usually pick this. Humor often lives in these low-probability completions that make unexpected connections."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      title: "The Full Chain",
+      description: "Now let's see the full picture. An LLM generates text by repeating this prediction process hundreds of times. Each token you pick changes what comes next. Let's follow a longer chain.",
+      concept: "Autoregressive generation",
+      takeaway: "Text generation is just this guessing game played thousands of times. Each token choice cascades forward, shaping all future predictions. That's all an LLM does: predict the next token, append it, and repeat. The magic is that this simple process, at scale, produces remarkably coherent text.",
+      sentences: [
+        {
+          tokens: ["In", " a", " hole", " in", " the", " ground", " there", " lived", " a", " hobbit"],
+          predictions: [
+            {
+              afterIndex: 1,
+              options: [
+                { token: " world", prob: 0.12 },
+                { token: " small", prob: 0.08 },
+                { token: " hole", prob: 0.06 },
+                { token: " land", prob: 0.09 },
+                { token: " recent", prob: 0.07 }
+              ],
+              explanation: "After just 'In a' \u2014 almost anything could follow. The model spreads probability across many options. We're at maximum uncertainty."
+            },
+            {
+              afterIndex: 5,
+              options: [
+                { token: " there", prob: 0.42 },
+                { token: ",", prob: 0.15 },
+                { token: " lived", prob: 0.10 },
+                { token: " that", prob: 0.06 },
+                { token: " a", prob: 0.04 }
+              ],
+              explanation: "Now with more context, 'there' becomes the clear favorite. The phrase 'in the ground there lived' is a recognizable literary pattern. Each new token narrows the possibilities."
+            },
+            {
+              afterIndex: 7,
+              options: [
+                { token: " a", prob: 0.65 },
+                { token: " an", prob: 0.10 },
+                { token: " the", prob: 0.05 },
+                { token: " no", prob: 0.03 },
+                { token: " something", prob: 0.02 }
+              ],
+              explanation: "After 'there lived,' the model strongly expects an article. 'a' dominates at 65%. The grammatical pattern is very constraining here."
+            },
+            {
+              afterIndex: 8,
+              options: [
+                { token: " hob", prob: 0.35 },
+                { token: " man", prob: 0.08 },
+                { token: " family", prob: 0.06 },
+                { token: " young", prob: 0.05 },
+                { token: " small", prob: 0.04 }
+              ],
+              explanation: "If you recognized Tolkien, you'd pick 'hob' (the start of 'hobbit'). The model knows this famous opening too \u2014 'hob' is the top prediction. Notice it's a subword token: 'hobbit' = 'hob' + 'bit'. Literature and tokenization in one prediction!"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+};
+
+// ==================== STATE ====================
+const state = {
+  phase: 'TITLE',
+  round: 0,
+  sentence: 0,
+  prediction: 0,
+  score: 0,
+  streak: 0,
+  roundScore: 0,
+  roundCorrect: 0,
+  roundTotal: 0,
+  totalPredictions: 0,
+  completedPredictions: 0,
+  maxScore: 0,
+};
+
+// Count total predictions
+GAME_DATA.rounds.forEach(r => r.sentences.forEach(s => {
+  state.totalPredictions += s.predictions.length;
+  s.predictions.forEach(p => state.maxScore += 100);
+}));
+
+// ==================== HELPERS ====================
+const $ = id => document.getElementById(id);
+const show = id => { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); $(id).classList.add('active'); };
+const delay = ms => new Promise(r => setTimeout(r, ms));
+
+function getCurrentRound() { return GAME_DATA.rounds[state.round]; }
+function getCurrentSentence() { return getCurrentRound().sentences[state.sentence]; }
+function getCurrentPrediction() { return getCurrentSentence().predictions[state.prediction]; }
+
+// ==================== GAME FLOW ====================
+function startGame() {
+  state.round = 0;
+  state.score = 0;
+  state.streak = 0;
+  state.completedPredictions = 0;
+  showRoundIntro();
+}
+
+function showRoundIntro() {
+  const round = getCurrentRound();
+  $('intro-round-num').textContent = `Round ${state.round + 1} of ${GAME_DATA.rounds.length}`;
+  $('intro-title').textContent = round.title;
+  $('intro-desc').textContent = round.description;
+  $('intro-concept').textContent = round.concept;
+  show('screen-round-intro');
+}
+
+function startRound() {
+  state.sentence = 0;
+  state.prediction = 0;
+  state.roundScore = 0;
+  state.roundCorrect = 0;
+  state.roundTotal = 0;
+  show('screen-play');
+  updateHeader();
+  showPrediction();
+}
+
+async function showPrediction() {
+  const round = getCurrentRound();
+  const sentence = getCurrentSentence();
+  const pred = getCurrentPrediction();
+
+  // Update header
+  updateHeader();
+
+  // Clear areas
+  $('sentence-area').innerHTML = '';
+  $('options-area').innerHTML = '';
+  $('explanation-area').classList.remove('visible');
+  $('btn-continue').style.display = 'none';
+  $('points-display').innerHTML = '';
+
+  // Animate tokens up to prediction point
+  for (let i = 0; i <= pred.afterIndex; i++) {
+    const span = document.createElement('span');
+    span.className = 'token-span';
+    span.textContent = sentence.tokens[i];
+    $('sentence-area').appendChild(span);
+    await delay(120);
+    span.classList.add('visible');
+  }
+
+  // Add blinking cursor
+  const cursor = document.createElement('span');
+  cursor.className = 'blank-cursor';
+  $('sentence-area').appendChild(cursor);
+
+  // Show options
+  await delay(300);
+  const shuffled = pred.options.map((o, i) => ({ ...o, origIndex: i }));
+  // Shuffle options so the correct answer isn't always first
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+
+  shuffled.forEach((opt, i) => {
+    const row = document.createElement('div');
+    row.className = 'option-row';
+    row.dataset.origIndex = opt.origIndex;
+    row.dataset.shuffleIndex = i;
+    row.innerHTML = `
+      <span class="option-key">${i + 1}</span>
+      <span class="option-token">${opt.token}</span>
+      <div class="prob-bar-container">
+        <div class="prob-bar" style="background:var(--accent)"></div>
+        <span class="prob-label">${(opt.prob * 100).toFixed(1)}%</span>
+      </div>
+      <span class="result-icon"></span>
+    `;
+    row.addEventListener('click', () => selectOption(row, opt, shuffled));
+    $('options-area').appendChild(row);
+  });
+
+  // Update progress
+  updateProgress();
+}
+
+function selectOption(row, chosen, allOptions) {
+  // Prevent double-click
+  if (row.closest('.options-area').querySelector('.revealed')) return;
+
+  const pred = getCurrentPrediction();
+  const bestProb = pred.options[0].prob;
+  const isCorrect = chosen.origIndex === 0;
+
+  // Calculate score
+  let points = 0;
+  let pointClass = 'bad';
+  if (isCorrect) {
+    points = 100;
+    pointClass = 'good';
+    state.streak++;
+    state.roundCorrect++;
+  } else if (chosen.prob >= 0.10) {
+    points = 50;
+    pointClass = 'ok';
+    state.streak = 0;
+  } else if (chosen.prob >= 0.05) {
+    points = 25;
+    pointClass = 'ok';
+    state.streak = 0;
+  } else {
+    points = 5;
+    state.streak = 0;
+  }
+
+  // Streak bonus
+  if (state.streak >= 3) {
+    points = Math.round(points * 1.5);
+  }
+
+  state.score += points;
+  state.roundScore += points;
+  state.roundTotal++;
+
+  // Reveal all probability bars
+  const rows = $('options-area').querySelectorAll('.option-row');
+  rows.forEach((r, i) => {
+    r.classList.add('revealed');
+    const opt = allOptions[i];
+    const bar = r.querySelector('.prob-bar');
+    const container = r.querySelector('.prob-bar-container');
+    const label = r.querySelector('.prob-label');
+    const icon = r.querySelector('.result-icon');
+
+    container.classList.add('visible');
+
+    // Color the bars
+    if (opt.origIndex === 0) {
+      bar.style.background = 'var(--green)';
+      r.classList.add('correct');
+      icon.textContent = '\u2713';
+      icon.style.color = 'var(--green)';
+    } else {
+      bar.style.background = 'var(--accent)';
+    }
+
+    // Mark the chosen one
+    if (r === row && !isCorrect) {
+      if (chosen.prob >= 0.05) {
+        r.classList.add('chosen-wrong');
+      } else {
+        r.classList.add('chosen-bad');
+      }
+      icon.textContent = '\u2717';
+      icon.style.color = chosen.prob >= 0.05 ? 'var(--amber)' : 'var(--red)';
+    }
+
+    setTimeout(() => {
+      bar.style.width = `${Math.max(opt.prob * 100, 2)}%`;
+      label.classList.add('visible');
+    }, i * 100 + 50);
+  });
+
+  // Show explanation
+  setTimeout(() => {
+    $('explanation-text').textContent = pred.explanation;
+    const streakText = state.streak >= 3 ? ` (1.5x streak bonus!)` : '';
+    $('points-display').innerHTML = `<span class="points-earned ${pointClass}">+${points} points${streakText}</span>`;
+    $('explanation-area').classList.add('visible');
+    $('btn-continue').style.display = '';
+  }, 600);
+
+  // Update score display
+  $('play-score').textContent = state.score;
+  updateStreakBadge();
+}
+
+function nextStep() {
+  state.completedPredictions++;
+  const sentence = getCurrentSentence();
+
+  // Next prediction in same sentence?
+  if (state.prediction + 1 < sentence.predictions.length) {
+    state.prediction++;
+    showPrediction();
+    return;
+  }
+
+  // Next sentence in same round?
+  const round = getCurrentRound();
+  if (state.sentence + 1 < round.sentences.length) {
+    state.sentence++;
+    state.prediction = 0;
+    showPrediction();
+    return;
+  }
+
+  // Round complete
+  showRoundSummary();
+}
+
+function showRoundSummary() {
+  const round = getCurrentRound();
+  $('summary-round-num').textContent = `Round ${state.round + 1} Complete`;
+  $('summary-score').textContent = `+${state.roundScore}`;
+  $('summary-breakdown').textContent = `${state.roundCorrect}/${state.roundTotal} top predictions \u00b7 Total: ${state.score} points`;
+  $('summary-takeaway').textContent = round.takeaway;
+
+  if (state.round + 1 >= GAME_DATA.rounds.length) {
+    $('btn-next-round').textContent = 'See Results';
+  } else {
+    $('btn-next-round').textContent = 'Next Round';
+  }
+
+  show('screen-round-summary');
+}
+
+function nextRound() {
+  if (state.round + 1 >= GAME_DATA.rounds.length) {
+    showGameComplete();
+    return;
+  }
+  state.round++;
+  state.sentence = 0;
+  state.prediction = 0;
+  showRoundIntro();
+}
+
+function showGameComplete() {
+  const pct = state.score / state.maxScore;
+  let title, desc;
+  if (pct >= 0.9) {
+    title = 'Honorary LLM';
+    desc = "You predicted tokens like a language model! You've developed strong intuition for how context shapes predictions.";
+  } else if (pct >= 0.75) {
+    title = 'Token Whisperer';
+    desc = "Excellent pattern recognition. You clearly understand how LLMs use context to narrow down predictions.";
+  } else if (pct >= 0.5) {
+    title = 'Context Reader';
+    desc = "You've got a solid grasp of how predictions work. The key insight: it's all about probability distributions shaped by context.";
+  } else if (pct >= 0.25) {
+    title = 'Pattern Spotter';
+    desc = "You're starting to see the patterns. Remember: LLMs don't 'understand' \u2014 they calculate the most likely next token from patterns in training data.";
+  } else {
+    title = 'Random Guesser';
+    desc = "Predicting tokens is hard! But now you know how LLMs work: they play this exact guessing game, billions of times, using statistics from massive amounts of text.";
+  }
+
+  $('final-score').textContent = state.score;
+  $('final-title').textContent = title;
+  $('final-desc').textContent = desc;
+
+  // Concept cards
+  const grid = $('concepts-grid');
+  grid.innerHTML = '';
+  const concepts = [
+    ['Next-Token Prediction', 'LLMs generate text one token at a time, picking the most probable next piece.'],
+    ['Probability Distributions', 'Each prediction is a spread of probabilities across all possible tokens.'],
+    ['Subword Tokenization', 'Text is split into tokens \u2014 which can be words, punctuation, or word fragments.'],
+    ['Context Matters', 'Earlier tokens shape all future predictions through the attention mechanism.'],
+    ['Training Patterns', 'The model learned patterns from text, including clich\u00e9s, facts, and biases.'],
+    ['Temperature', 'Low = predictable text, high = creative/surprising text from lower-probability tokens.'],
+  ];
+  concepts.forEach(([t, d]) => {
+    const card = document.createElement('div');
+    card.className = 'concept-card';
+    card.innerHTML = `<div class="cc-title">${t}</div><div class="cc-desc">${d}</div>`;
+    grid.appendChild(card);
+  });
+
+  show('screen-complete');
+}
+
+// ==================== UI HELPERS ====================
+function updateHeader() {
+  const round = getCurrentRound();
+  $('play-round-label').textContent = `Round ${state.round + 1} of ${GAME_DATA.rounds.length}`;
+  $('play-round-title').textContent = round.title;
+  $('play-score').textContent = state.score;
+  updateStreakBadge();
+}
+
+function updateStreakBadge() {
+  const badge = $('streak-badge');
+  if (state.streak >= 3) {
+    badge.style.display = '';
+    badge.textContent = `${state.streak} streak \u00d7 1.5`;
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+function updateProgress() {
+  const pct = (state.completedPredictions / state.totalPredictions) * 100;
+  $('progress-fill').style.width = `${pct}%`;
+  $('progress-label').textContent = `Step ${state.completedPredictions + 1} of ${state.totalPredictions}`;
+}
+
+function shareScore() {
+  const pct = state.score / state.maxScore;
+  let title = pct >= 0.9 ? 'Honorary LLM' : pct >= 0.75 ? 'Token Whisperer' : pct >= 0.5 ? 'Context Reader' : pct >= 0.25 ? 'Pattern Spotter' : 'Random Guesser';
+  const text = `Guess the Next Token \ud83c\udfaf\nI scored ${state.score} points \u2014 "${title}"\nLearn how LLMs work by playing!`;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = event.target;
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy Score', 2000);
+  });
+}
+
+// ==================== KEYBOARD ====================
+document.addEventListener('keydown', e => {
+  if (e.key >= '1' && e.key <= '5') {
+    const rows = $('options-area').querySelectorAll('.option-row');
+    const idx = parseInt(e.key) - 1;
+    if (idx < rows.length && !rows[0].classList.contains('revealed')) {
+      rows[idx].click();
+    }
+  }
+  if (e.key === 'Enter' || e.key === ' ') {
+    const cont = $('btn-continue');
+    if (cont.style.display !== 'none') {
+      e.preventDefault();
+      cont.click();
+      return;
+    }
+    // Check other screens
+    const active = document.querySelector('.screen.active');
+    if (active) {
+      const btn = active.querySelector('.btn-primary');
+      if (btn) { e.preventDefault(); btn.click(); }
+    }
+  }
+});
+</script>
+</body>
+</html>
