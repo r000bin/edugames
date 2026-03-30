@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Tokenizer</title>
+<style>
+  :root {
+    --bg: #0f1729;
+    --bg-card: #1a2340;
+    --bg-hover: #243056;
+    --text: #e2e8f0;
+    --text-dim: #8892a8;
+    --accent: #6366f1;
+    --green: #22c55e;
+    --green-bg: rgba(34,197,94,0.15);
+    --amber: #f59e0b;
+    --amber-bg: rgba(245,158,11,0.15);
+    --red: #ef4444;
+    --red-bg: rgba(239,68,68,0.15);
+    --radius: 10px;
+    --max-w: 700px;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg); color: var(--text);
+    min-height: 100vh; display: flex; justify-content: center; padding: 16px;
+  }
+  .screen { display:none; flex-direction:column; width:100%; max-width:var(--max-w); }
+  .screen.active { display:flex; }
+  button { font-family:inherit; cursor:pointer; border:none; border-radius:var(--radius); font-size:1rem; transition:all 0.2s; }
+  button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  .btn-primary { background:var(--accent); color:#fff; padding:14px 32px; font-size:1.1rem; font-weight:600; }
+  .btn-primary:hover { filter:brightness(1.15); transform:translateY(-1px); }
+  .btn-secondary { background:var(--bg-card); color:var(--text); padding:12px 24px; border:1px solid rgba(255,255,255,0.1); font-weight:600; }
+  .btn-secondary:hover { background:var(--bg-hover); }
+
+  /* Language picker */
+  .lang-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; width:100%; max-width:360px; }
+  .lang-btn { background:var(--bg-card); border:2px solid rgba(99,102,241,0.2); color:var(--text); padding:18px 16px; border-radius:var(--radius); font-size:1.1rem; font-weight:600; display:flex; align-items:center; gap:10px; justify-content:center; }
+  .lang-btn:hover { border-color:var(--accent); background:var(--bg-hover); }
+  .lang-flag { font-size:1.5rem; }
+
+  /* Title */
+  #screen-title { align-items:center; justify-content:center; text-align:center; gap:24px; min-height:80vh; }
+  #screen-title h1 { font-size:2.4rem; font-weight:800; line-height:1.2; }
+  #screen-title h1 span { color:var(--accent); }
+  #screen-title .subtitle { color:var(--text-dim); font-size:1.1rem; max-width:500px; line-height:1.6; }
+  .demo-tokens { display:flex; gap:4px; justify-content:center; flex-wrap:wrap; margin:8px 0; }
+  .demo-tok { padding:6px 10px; border-radius:6px; font-family:'SF Mono','Fira Code','Consolas',monospace; font-size:0.9rem; font-weight:600; }
+
+  /* Header */
+  .game-header { display:flex; justify-content:space-between; align-items:center; padding:12px 0; margin-bottom:16px; border-bottom:1px solid rgba(255,255,255,0.08); }
+  .game-header .round-label { color:var(--text-dim); font-size:0.9rem; }
+  .game-header .round-title { font-weight:700; font-size:1rem; }
+  .game-header .score { font-size:1.1rem; font-weight:700; color:var(--accent); }
+
+  /* Tokenizer area */
+  .instruction { color:var(--text-dim); font-size:0.9rem; margin-bottom:12px; text-align:center; }
+  .text-area {
+    background: var(--bg-card); border-radius: var(--radius); padding: 28px 24px;
+    margin-bottom: 16px; min-height: 80px;
+    font-family: 'SF Mono','Fira Code','Consolas',monospace;
+    font-size: 1.3rem; line-height: 2.2;
+    display: flex; flex-wrap: wrap; align-items: baseline;
+    user-select: none; position: relative;
+  }
+  .char-unit { position:relative; display:inline; cursor:pointer; padding:4px 0; }
+  .char-unit .char-text { position:relative; z-index:1; }
+  .split-marker {
+    position: absolute; top: 2px; bottom: 2px; width: 3px; left: -1.5px;
+    background: var(--accent); border-radius: 2px; z-index: 2;
+    animation: markerPop 0.2s ease-out;
+  }
+  @keyframes markerPop { from { transform:scaleY(0); } to { transform:scaleY(1); } }
+
+  /* Revealed tokens */
+  .revealed-area {
+    background: var(--bg-card); border-radius: var(--radius); padding: 20px 24px;
+    margin-bottom: 16px; min-height: 60px;
+    font-family: 'SF Mono','Fira Code','Consolas',monospace;
+    font-size: 1.2rem; line-height: 2.2;
+    display: flex; flex-wrap: wrap; gap: 4px; align-items: baseline;
+  }
+  .tok-chip {
+    padding: 4px 8px; border-radius: 5px; font-weight: 600;
+    white-space: pre; border: 2px solid transparent;
+  }
+  .tok-chip.matched { border-color: var(--green); }
+  .tok-chip.missed { border-color: var(--amber); }
+
+  /* Score display row */
+  .score-row {
+    display: flex; justify-content: center; gap: 24px;
+    margin-bottom: 16px; flex-wrap: wrap;
+  }
+  .score-pill {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 16px; border-radius: 99px;
+    font-weight: 600; font-size: 0.9rem;
+  }
+  .score-pill.good { background: var(--green-bg); color: var(--green); }
+  .score-pill.ok { background: var(--amber-bg); color: var(--amber); }
+  .score-pill.bad { background: var(--red-bg); color: var(--red); }
+
+  /* Explanation */
+  .explanation-area {
+    background: rgba(99,102,241,0.08); border-left:3px solid var(--accent);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    padding: 16px 20px; margin-bottom: 16px;
+    font-size: 0.95rem; line-height: 1.6;
+    opacity:0; transform:translateY(8px); transition:all 0.4s;
+  }
+  .explanation-area.visible { opacity:1; transform:translateY(0); }
+  .explanation-area .label { font-weight:700; color:var(--accent); margin-bottom:4px; font-size:0.85rem; text-transform:uppercase; letter-spacing:0.05em; }
+
+  .btn-row { display:flex; justify-content:center; gap:12px; padding:8px 0 16px; flex-wrap:wrap; }
+
+  /* Progress */
+  .progress-area { margin-top:auto; padding-top:16px; }
+  .progress-bar-bg { height:6px; background:rgba(255,255,255,0.06); border-radius:3px; overflow:hidden; }
+  .progress-bar-fill { height:100%; background:var(--accent); border-radius:3px; transition:width 0.4s ease-out; }
+  .progress-label { text-align:center; font-size:0.8rem; color:var(--text-dim); margin-top:6px; }
+
+  /* Round screens */
+  #screen-round-intro { align-items:center; justify-content:center; text-align:center; gap:20px; min-height:60vh; }
+  #screen-round-intro .round-num { color:var(--accent); font-size:0.9rem; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; }
+  #screen-round-intro h2 { font-size:1.8rem; font-weight:800; }
+  #screen-round-intro .round-desc { color:var(--text-dim); font-size:1.05rem; max-width:500px; line-height:1.6; }
+  .concept-badge { display:inline-block; background:rgba(99,102,241,0.15); color:var(--accent); padding:6px 16px; border-radius:99px; font-size:0.85rem; font-weight:600; }
+
+  #screen-round-summary { align-items:center; justify-content:center; text-align:center; gap:20px; min-height:60vh; }
+  .summary-score { font-size:2.5rem; font-weight:800; color:var(--accent); }
+  .summary-breakdown { color:var(--text-dim); font-size:0.95rem; }
+  .takeaway-box { background:var(--bg-card); border:1px solid rgba(99,102,241,0.2); border-radius:var(--radius); padding:20px 24px; max-width:500px; text-align:left; line-height:1.6; }
+  .takeaway-box .takeaway-label { font-weight:700; color:var(--accent); font-size:0.85rem; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:8px; }
+
+  #screen-complete { align-items:center; justify-content:center; text-align:center; gap:20px; min-height:80vh; }
+  #screen-complete h2 { font-size:2rem; font-weight:800; }
+  .final-score { font-size:3rem; font-weight:800; color:var(--accent); }
+  .final-title { font-size:1.3rem; font-weight:700; padding:8px 24px; border-radius:99px; background:rgba(99,102,241,0.15); color:var(--accent); }
+  .concepts-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; max-width:500px; width:100%; text-align:left; }
+  .concept-card { background:var(--bg-card); border-radius:var(--radius); padding:12px 16px; }
+  .concept-card .cc-title { font-weight:700; font-size:0.85rem; margin-bottom:4px; }
+  .concept-card .cc-desc { font-size:0.8rem; color:var(--text-dim); line-height:1.4; }
+
+  .back-link { color:var(--text-dim); text-decoration:none; font-size:0.9rem; position:fixed; top:16px; left:16px; }
+  .back-link:hover { color:var(--text); }
+
+  /* Token colors palette */
+  .tc0 { background:rgba(99,102,241,0.2); }
+  .tc1 { background:rgba(34,197,94,0.2); }
+  .tc2 { background:rgba(245,158,11,0.2); }
+  .tc3 { background:rgba(236,72,153,0.2); }
+  .tc4 { background:rgba(14,165,233,0.2); }
+  .tc5 { background:rgba(168,85,247,0.2); }
+  .tc6 { background:rgba(251,146,60,0.2); }
+  .tc7 { background:rgba(45,212,191,0.2); }
+
+  @media (max-width:500px) {
+    #screen-title h1 { font-size:1.8rem; }
+    .text-area { font-size:1.1rem; padding:20px 16px; }
+    .concepts-grid { grid-template-columns:1fr; }
+    .lang-grid { grid-template-columns:1fr; max-width:240px; }
+  }
+</style>
+</head>
+<body>
+
+<a href="../" class="back-link">&larr; All Games</a>
+
+<!-- Title -->
+<div id="screen-title" class="screen active">
+  <h1>The<br><span>Tokenizer</span></h1>
+  <div class="demo-tokens">
+    <span class="demo-tok tc0">Hello</span>
+    <span class="demo-tok tc1">,</span>
+    <span class="demo-tok tc2"> world</span>
+    <span class="demo-tok tc3">!</span>
+  </div>
+  <p class="subtitle" id="title-subtitle"></p>
+  <div class="lang-grid" id="lang-grid"></div>
+</div>
+
+<!-- Round Intro -->
+<div id="screen-round-intro" class="screen">
+  <span class="round-num" id="intro-round-num"></span>
+  <h2 id="intro-title"></h2>
+  <p class="round-desc" id="intro-desc"></p>
+  <span class="concept-badge" id="intro-concept"></span>
+  <button class="btn-primary" id="btn-begin" onclick="startRound()"></button>
+</div>
+
+<!-- Game Play -->
+<div id="screen-play" class="screen">
+  <div class="game-header">
+    <div>
+      <div class="round-label" id="play-round-label"></div>
+      <div class="round-title" id="play-round-title"></div>
+    </div>
+    <span class="score" id="play-score">0</span>
+  </div>
+  <div class="instruction" id="play-instruction"></div>
+  <div class="text-area" id="text-area"></div>
+  <div class="btn-row" id="submit-row">
+    <button class="btn-secondary" id="btn-clear" onclick="clearSplits()"></button>
+    <button class="btn-primary" id="btn-submit" onclick="submitSplits()"></button>
+  </div>
+  <div class="revealed-area" id="revealed-area" style="display:none"></div>
+  <div class="score-row" id="score-row" style="display:none"></div>
+  <div class="explanation-area" id="explanation-area">
+    <div class="label" id="explanation-label"></div>
+    <p id="explanation-text"></p>
+  </div>
+  <div class="btn-row" id="continue-row" style="display:none">
+    <button class="btn-primary" id="btn-continue" onclick="nextChallenge()"></button>
+  </div>
+  <div class="progress-area">
+    <div class="progress-bar-bg"><div class="progress-bar-fill" id="progress-fill"></div></div>
+    <div class="progress-label" id="progress-label"></div>
+  </div>
+</div>
+
+<!-- Round Summary -->
+<div id="screen-round-summary" class="screen">
+  <span class="round-num" id="summary-round-num"></span>
+  <div class="summary-score" id="summary-score"></div>
+  <div class="summary-breakdown" id="summary-breakdown"></div>
+  <div class="takeaway-box">
+    <div class="takeaway-label" id="summary-takeaway-label"></div>
+    <p id="summary-takeaway"></p>
+  </div>
+  <button class="btn-primary" id="btn-next-round" onclick="nextRound()"></button>
+</div>
+
+<!-- Complete -->
+<div id="screen-complete" class="screen">
+  <h2 id="complete-heading"></h2>
+  <div class="final-score" id="final-score"></div>
+  <div class="final-title" id="final-title"></div>
+  <p style="color:var(--text-dim);max-width:500px;line-height:1.6" id="final-desc"></p>
+  <div class="concepts-grid" id="concepts-grid"></div>
+  <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
+    <button class="btn-primary" id="btn-play-again" onclick="location.reload()"></button>
+    <button class="btn-secondary" onclick="window.location.href='../'">&#8592; <span id="btn-all-games"></span></button>
+  </div>
+</div>
+
+<script>
+// ==================== UI TRANSLATIONS ====================
+const UI = {
+  en: {
+    subtitle: "LLMs don't read words \u2014 they read tokens. Can you guess where the AI splits text apart? Click between characters to place your splits, then see the real answer.",
+    begin: 'Begin', continue_: 'Continue', nextRound: 'Next Round', seeResults: 'See Results',
+    submit: 'Check', clear: 'Clear', howItWorks: 'Why it splits this way',
+    keyTakeaway: 'Key Takeaway', gameComplete: 'Game Complete!', playAgain: 'Play Again', allGames: 'All Games',
+    instruction: 'Click between characters to mark where you think tokens split',
+    roundN: (n,t) => `Round ${n} of ${t}`,
+    roundComplete: n => `Round ${n} Complete`,
+    stepN: (n,t) => `Step ${n} of ${t}`,
+    matchScore: (m,t) => `${m}/${t} splits matched`,
+    totalScore: s => `Total: ${s} points`,
+    breakdown: (c,t,s) => `${c}/${t} challenges \u00b7 Total: ${s} points`,
+    tokensCount: n => `${n} tokens`,
+    perfect: 'Perfect!', great: 'Great!', good: 'Good', missed: 'Not quite',
+    titles: ['Blunt Scissors','Apprentice Splitter','Split Spotter','Token Master','BPE Wizard'],
+    titleDescs: [
+      "Tokenization is tricky! But now you know: LLMs don't read words, they read tokens \u2014 and the splits aren't always where you'd expect.",
+      "You're getting a feel for how tokenizers work. The patterns are surprising at first, but they follow statistical rules from training data.",
+      "Solid understanding! You've noticed that common words stay whole while rare ones get chopped up. That's BPE in action.",
+      "Impressive! You clearly understand subword tokenization \u2014 common pieces stay intact, rare combinations get split.",
+      "You think like a tokenizer! BPE has no secrets from you. You understand why LLMs see text so differently from humans."
+    ],
+    concepts: [
+      ['Tokens \u2260 Words','LLMs split text into tokens that can be words, punctuation, spaces, or word fragments.'],
+      ['BPE Algorithm','Byte Pair Encoding merges the most frequent character pairs first, building common tokens.'],
+      ['Common = Whole','Frequent words like "the" stay as one token. Rare words get split into pieces.'],
+      ['Numbers Are Tricky','Numbers get split into digit groups. "1000" might be "100"+"0". This is why LLMs struggle with math.'],
+      ['Language Matters','Different languages tokenize very differently. Non-Latin scripts often need more tokens per word.'],
+      ['Token Count = Cost','More tokens = more compute time and cost. Efficient tokenization matters for AI systems.'],
+    ]
+  },
+  de: {
+    subtitle: "LLMs lesen keine W\u00f6rter \u2014 sie lesen Token. Kannst du erraten, wo die KI den Text aufteilt? Klicke zwischen die Zeichen und finde es heraus.",
+    begin: 'Los geht\u2019s', continue_: 'Weiter', nextRound: 'N\u00e4chste Runde', seeResults: 'Ergebnis',
+    submit: 'Pr\u00fcfen', clear: 'L\u00f6schen', howItWorks: 'Warum so aufgeteilt?',
+    keyTakeaway: 'Wichtigste Erkenntnis', gameComplete: 'Spiel beendet!', playAgain: 'Nochmal', allGames: 'Alle Spiele',
+    instruction: 'Klicke zwischen Zeichen, um Token-Grenzen zu markieren',
+    roundN: (n,t) => `Runde ${n} von ${t}`,
+    roundComplete: n => `Runde ${n} abgeschlossen`,
+    stepN: (n,t) => `Schritt ${n} von ${t}`,
+    matchScore: (m,t) => `${m}/${t} Trennungen korrekt`,
+    totalScore: s => `Gesamt: ${s} Punkte`,
+    breakdown: (c,t,s) => `${c}/${t} Aufgaben \u00b7 Gesamt: ${s} Punkte`,
+    tokensCount: n => `${n} Token`,
+    perfect: 'Perfekt!', great: 'Super!', good: 'Gut', missed: 'Knapp daneben',
+    titles: ['Stumpfe Schere','Lehrlings-Trenner','Split-Sp\u00e4her','Token-Meister','BPE-Zauberer'],
+    titleDescs: [
+      "Tokenisierung ist knifflig! Aber jetzt wei\u00dft du: LLMs lesen keine W\u00f6rter, sondern Token \u2014 und die Trennungen sind nicht immer dort, wo man sie erwartet.",
+      "Du bekommst ein Gef\u00fchl daf\u00fcr, wie Tokenizer funktionieren. Die Muster sind zun\u00e4chst \u00fcberraschend, folgen aber statistischen Regeln.",
+      "Solides Verst\u00e4ndnis! H\u00e4ufige W\u00f6rter bleiben ganz, seltene werden zerlegt. Das ist BPE in Aktion.",
+      "Beeindruckend! Du verstehst Subwort-Tokenisierung \u2014 h\u00e4ufige Teile bleiben intakt, seltene werden aufgeteilt.",
+      "Du denkst wie ein Tokenizer! BPE hat keine Geheimnisse mehr vor dir."
+    ],
+    concepts: [
+      ['Token \u2260 W\u00f6rter','LLMs teilen Text in Token \u2014 W\u00f6rter, Satzzeichen, Leerzeichen oder Wortteile.'],
+      ['BPE-Algorithmus','Byte Pair Encoding verschmilzt zuerst die h\u00e4ufigsten Zeichenpaare.'],
+      ['H\u00e4ufig = Ganz','Frequente W\u00f6rter wie "die" bleiben ein Token. Seltene werden zerlegt.'],
+      ['Zahlen sind t\u00fcckisch','Zahlen werden in Zifferngruppen zerlegt. Deshalb k\u00e4mpfen LLMs mit Mathematik.'],
+      ['Sprache z\u00e4hlt','Verschiedene Sprachen werden sehr unterschiedlich tokenisiert.'],
+      ['Token = Kosten','Mehr Token = mehr Rechenzeit und Kosten.'],
+    ]
+  },
+  fr: {
+    subtitle: "Les LLM ne lisent pas des mots \u2014 ils lisent des tokens. Pouvez-vous deviner o\u00f9 l\u2019IA d\u00e9coupe le texte\u00a0? Cliquez entre les caract\u00e8res pour placer vos coupures.",
+    begin: 'C\u2019est parti', continue_: 'Continuer', nextRound: 'Manche suivante', seeResults: 'R\u00e9sultats',
+    submit: 'V\u00e9rifier', clear: 'Effacer', howItWorks: 'Pourquoi ce d\u00e9coupage\u00a0?',
+    keyTakeaway: 'Point cl\u00e9', gameComplete: 'Partie termin\u00e9e\u00a0!', playAgain: 'Rejouer', allGames: 'Tous les jeux',
+    instruction: 'Cliquez entre les caract\u00e8res pour marquer les coupures de tokens',
+    roundN: (n,t) => `Manche ${n} sur ${t}`,
+    roundComplete: n => `Manche ${n} termin\u00e9e`,
+    stepN: (n,t) => `\u00c9tape ${n} sur ${t}`,
+    matchScore: (m,t) => `${m}/${t} coupures correctes`,
+    totalScore: s => `Total\u00a0: ${s} points`,
+    breakdown: (c,t,s) => `${c}/${t} d\u00e9fis \u00b7 Total\u00a0: ${s} points`,
+    tokensCount: n => `${n} tokens`,
+    perfect: 'Parfait\u00a0!', great: 'Super\u00a0!', good: 'Bien', missed: 'Pas tout \u00e0 fait',
+    titles: ['Ciseaux \u00e9mouss\u00e9s','Apprenti d\u00e9coupeur','Rep\u00e9reur de splits','Ma\u00eetre des tokens','Magicien BPE'],
+    titleDescs: [
+      "La tokenisation est d\u00e9licate\u00a0! Mais maintenant vous savez : les LLM ne lisent pas des mots, mais des tokens.",
+      "Vous commencez \u00e0 comprendre comment fonctionnent les tokeniseurs.",
+      "Bonne compr\u00e9hension\u00a0! Les mots courants restent entiers, les rares sont d\u00e9coup\u00e9s. C\u2019est le BPE.",
+      "Impressionnant\u00a0! Vous comprenez la tokenisation en sous-mots.",
+      "Vous pensez comme un tokeniseur\u00a0! Le BPE n\u2019a plus de secrets pour vous."
+    ],
+    concepts: [
+      ['Token \u2260 Mots','Les LLM d\u00e9coupent le texte en tokens : mots, ponctuation, espaces ou fragments.'],
+      ['Algorithme BPE','Le Byte Pair Encoding fusionne d\u2019abord les paires de caract\u00e8res les plus fr\u00e9quentes.'],
+      ['Courant = Entier','Les mots fr\u00e9quents restent un token. Les rares sont d\u00e9coup\u00e9s.'],
+      ['Chiffres d\u00e9licats','Les nombres sont d\u00e9coup\u00e9s en groupes de chiffres.'],
+      ['La langue compte','Diff\u00e9rentes langues se tokenisent tr\u00e8s diff\u00e9remment.'],
+      ['Token = Co\u00fbt','Plus de tokens = plus de calcul et de co\u00fbt.'],
+    ]
+  },
+  it: {
+    subtitle: "Gli LLM non leggono parole \u2014 leggono token. Riesci a indovinare dove l\u2019IA divide il testo? Clicca tra i caratteri per posizionare le tue divisioni.",
+    begin: 'Via!', continue_: 'Continua', nextRound: 'Prossimo round', seeResults: 'Risultati',
+    submit: 'Verifica', clear: 'Cancella', howItWorks: 'Perch\u00e9 si divide cos\u00ec?',
+    keyTakeaway: 'Concetto chiave', gameComplete: 'Partita completata!', playAgain: 'Gioca ancora', allGames: 'Tutti i giochi',
+    instruction: 'Clicca tra i caratteri per segnare dove pensi che i token si dividano',
+    roundN: (n,t) => `Round ${n} di ${t}`,
+    roundComplete: n => `Round ${n} completato`,
+    stepN: (n,t) => `Passo ${n} di ${t}`,
+    matchScore: (m,t) => `${m}/${t} divisioni corrette`,
+    totalScore: s => `Totale: ${s} punti`,
+    breakdown: (c,t,s) => `${c}/${t} sfide \u00b7 Totale: ${s} punti`,
+    tokensCount: n => `${n} token`,
+    perfect: 'Perfetto!', great: 'Ottimo!', good: 'Bene', missed: 'Quasi',
+    titles: ['Forbici spuntate','Apprendista divisore','Scopritore di split','Maestro dei token','Mago BPE'],
+    titleDescs: [
+      "La tokenizzazione \u00e8 complicata! Ma ora sai: gli LLM non leggono parole, ma token.",
+      "Stai iniziando a capire come funzionano i tokenizzatori.",
+      "Buona comprensione! Le parole comuni restano intere, quelle rare vengono spezzate.",
+      "Impressionante! Capisci la tokenizzazione in sotto-parole.",
+      "Pensi come un tokenizzatore! Il BPE non ha pi\u00f9 segreti per te."
+    ],
+    concepts: [
+      ['Token \u2260 Parole','Gli LLM dividono il testo in token: parole, punteggiatura, spazi o frammenti.'],
+      ['Algoritmo BPE','Il Byte Pair Encoding fonde prima le coppie di caratteri pi\u00f9 frequenti.'],
+      ['Comune = Intero','Le parole frequenti restano un token. Quelle rare vengono spezzate.'],
+      ['Numeri insidiosi','I numeri vengono divisi in gruppi di cifre.'],
+      ['La lingua conta','Lingue diverse si tokenizzano molto diversamente.'],
+      ['Token = Costo','Pi\u00f9 token = pi\u00f9 calcolo e costo.'],
+    ]
+  }
+};
+
+// ==================== GAME DATA ====================
+// Each challenge: { text, tokens: [...], explanation }
+// tokens = how the tokenizer actually splits the text
+const GAME_DATA_ALL = {
+en: { rounds: [
+  {
+    title: "Simple Words",
+    description: "Let's start easy. How does the AI split common English sentences? You might think it's just spaces, but watch carefully...",
+    concept: "Basic tokenization",
+    takeaway: "Spaces usually mark token boundaries, but punctuation gets its own token. A period or comma is separate from the word before it. Tokenizers treat punctuation as independent units.",
+    challenges: [
+      { text: "The cat sat.", tokens: ["The"," cat"," sat","."], explanation: "Simple words get their own token, but notice: the period is a separate token! Punctuation is always split off. Also note: all tokens except the first start with a space." },
+      { text: "Hello, world!", tokens: ["Hello",","," world","!"], explanation: "The comma and exclamation mark are each their own token. 'Hello' has no leading space because it's the first token. Every subsequent word-token starts with a space." },
+      { text: "I don't know.", tokens: ["I"," don","'t"," know","."], explanation: "Surprise! \"don't\" is three tokens: ' don' + \"'t\". The contraction gets split at the apostrophe. This is why LLMs sometimes produce odd contractions." }
+    ]
+  },
+  {
+    title: "Long & Rare Words",
+    description: "Common words stay whole, but what happens when the tokenizer encounters unusual or long words? This is where subword splitting gets interesting.",
+    concept: "BPE subword splitting",
+    takeaway: "The BPE algorithm builds tokens by frequency. 'the' appears millions of times so it's one token. 'Pneumonia' is rarer, so it gets split into pieces the tokenizer has seen before. The rarer the word, the more pieces.",
+    challenges: [
+      { text: "Unbelievable!", tokens: ["Un","believ","able","!"], explanation: "'Unbelievable' gets split into 'Un' + 'believ' + 'able'. The tokenizer learned these common sub-parts (prefixes and suffixes) from training data. 'Un-' and '-able' are very common English morphemes." },
+      { text: "Pneumonoultramicroscopicsilicovolcanoconiosis", tokens: ["Pne","um","ono","ult","ram","icro","scop","ics","ilic","ov","olcan","ocon","iosis"], explanation: "This 45-letter word becomes 13 tokens! The tokenizer has never seen this word as a whole, so it falls back to smaller and smaller pieces. Very rare words cost many tokens." },
+      { text: "The counterrevolutionary escaped.", tokens: ["The"," counter","revolution","ary"," escaped","."], explanation: "'counterrevolutionary' splits into meaningful parts: 'counter' + 'revolution' + 'ary'. The tokenizer accidentally discovers morphology \u2014 the same prefixes and suffixes linguists study." }
+    ]
+  },
+  {
+    title: "Numbers & Code",
+    description: "Numbers and programming code tokenize in surprising ways. LLMs don't see numbers as quantities \u2014 they see them as character sequences to split up.",
+    concept: "Non-word tokenization",
+    takeaway: "Numbers get split into digit groups, not by numeric value. '1000' and '10'+'00' look the same to us but are different token sequences. This is a fundamental reason why LLMs struggle with arithmetic \u2014 they never see numbers as numbers.",
+    challenges: [
+      { text: "Price: $1,234.56", tokens: ["Price",":"," $","1",",","234",".","56"], explanation: "The number becomes 5 tokens: '$' + '1' + ',' + '234' + '.' + '56'. Each punctuation mark splits. The tokenizer has no concept of 'one thousand two hundred thirty four' \u2014 it just sees character groups." },
+      { text: "def hello():", tokens: ["def"," hello","():"], explanation: "Python code! 'def' and 'hello' are familiar tokens, but '():' gets merged into one token because this exact pattern appears so often in code training data." },
+      { text: "2024-01-15T09:30:00Z", tokens: ["202","4","-","01","-","15","T","09",":","30",":","00","Z"], explanation: "An ISO date becomes 13 tokens! Every dash, colon, and digit group is separate. The 'T' separator is its own token. This is why LLMs sometimes mess up date formats." }
+    ]
+  },
+  {
+    title: "Emoji & Special Characters",
+    description: "What happens when the tokenizer encounters emoji, Unicode characters, or non-Latin scripts? The results are often surprising.",
+    concept: "Multi-byte tokenization",
+    takeaway: "Emoji and non-Latin scripts often use multiple tokens per character. A single emoji like a flag can cost 5+ tokens. This means AI systems 'pay' much more to process emoji-heavy text or non-English languages \u2014 a real equity issue in AI.",
+    challenges: [
+      { text: "I love \u2764\ufe0f AI", tokens: ["I"," love"," \u2764","\\ufe0f"," AI"], explanation: "The heart emoji \u2764\ufe0f is actually TWO tokens! \u2764 (the base heart) + \\ufe0f (a variation selector that makes it red). What looks like one character is actually two Unicode code points, each becoming a token." },
+      { text: "Hello \ud83c\udde9\ud83c\uddea", tokens: ["Hello"," \ud83c\udde9","\ud83c\uddea"], explanation: "The German flag \ud83c\udde9\ud83c\uddea is 2 tokens! Flag emoji are made from pairs of 'regional indicator' characters (D + E = \ud83c\udde9\ud83c\uddea). Each indicator is a separate token." },
+      { text: "\u00bfHablas espa\u00f1ol?", tokens: ["\u00bf","Hab","las"," espa","\u00f1","ol","?"], explanation: "Spanish text shows how non-ASCII characters add tokens. The inverted question mark \u00bf and \u00f1 each need their own token. 'Hablas' splits into 'Hab'+'las'. Non-English text often costs more tokens." }
+    ]
+  },
+  {
+    title: "The Full Picture",
+    description: "Now you've seen how tokenization works across different types of text. Let's put it all together with some tricky examples that combine multiple challenges.",
+    concept: "Putting it all together",
+    takeaway: "Tokenization is the invisible first step in every LLM interaction. It determines what the model 'sees,' how much it costs, and why it struggles with certain tasks. Understanding tokens gives you a deeper understanding of AI's capabilities and limitations.",
+    challenges: [
+      { text: "GPT-4 can't count strawberry's r's", tokens: ["G","PT","-","4"," can","'t"," count"," straw","berry","'s"," r","'s"], explanation: "This sentence about LLM limitations is itself tricky to tokenize! 'GPT' becomes 'G'+'PT', 'strawberry' splits into 'straw'+'berry', and each apostrophe-s is its own token. 12 tokens for 7 words." },
+      { text: "email@example.com/path?q=hello world", tokens: ["email","@","example",".com","/path","?q","=hello"," world"], explanation: "URLs and emails have their own tokenization patterns. '.com' is such a frequent sequence it stays as one token. '?q' stays together because it appears so often in URLs." },
+      { text: "Tokyo (\u6771\u4eac) is \ud83c\uddef\ud83c\uddf5", tokens: ["Tokyo"," (","\\u6771","\\u4eac",")"," is"," \ud83c\uddef","\ud83c\uddf5"], explanation: "The ultimate mix! English ('Tokyo', 'is') is cheap. Japanese kanji (\u6771\u4eac) costs 2 tokens for 2 characters. The Japan flag \ud83c\uddef\ud83c\uddf5 costs 2 tokens. The same information in different scripts costs different amounts \u2014 a fundamental fairness issue in AI." }
+    ]
+  }
+]},
+de: { rounds: [
+  {
+    title: "Einfache W\u00f6rter",
+    description: "Fangen wir leicht an. Wie teilt die KI gew\u00f6hnliche deutsche S\u00e4tze auf? Es ist nicht nur an den Leerzeichen...",
+    concept: "Grundlegende Tokenisierung",
+    takeaway: "Leerzeichen markieren meist Token-Grenzen, aber Satzzeichen bekommen eigene Token. Ein Punkt oder Komma wird vom Wort davor getrennt.",
+    challenges: [
+      { text: "Die Katze schläft.", tokens: ["Die"," Katze"," schl","äft","."], explanation: "Einfache W\u00f6rter bekommen eigene Token, aber '\u00e4' in 'schl\u00e4ft' f\u00fchrt zu einer Aufteilung. Umlaute sind f\u00fcr englisch-trainierte Tokenizer nicht so h\u00e4ufig und werden manchmal abgetrennt." },
+      { text: "Hallo, Welt!", tokens: ["Hallo",","," Welt","!"], explanation: "Komma und Ausrufezeichen sind jeweils eigene Token. 'Hallo' und 'Welt' sind h\u00e4ufig genug, um ganze Token zu bleiben." },
+      { text: "Ich hab's verstanden.", tokens: ["Ich"," hab","'s"," verstanden","."], explanation: "Die Kurzform 'hab's' wird aufgeteilt: 'hab' + \"'s\". Apostrophe erzeugen fast immer eine Token-Grenze." }
+    ]
+  },
+  {
+    title: "Komposita & seltene W\u00f6rter",
+    description: "Das Deutsche ist ber\u00fchmt f\u00fcr seine zusammengesetzten W\u00f6rter. Wie geht der Tokenizer damit um?",
+    concept: "BPE-Subwort-Aufteilung",
+    takeaway: "Deutsche Komposita werden in kleinere Teile zerlegt, die der Tokenizer kennt. 'Krankenhaus' wird zu 'Krank' + 'enhaus' oder \u00e4hnlich. Je l\u00e4nger und seltener das Wort, desto mehr Token.",
+    challenges: [
+      { text: "Krankenversicherung", tokens: ["Kr","anken","versicherung"], explanation: "'Krankenversicherung' wird in Teile zerlegt. Der Tokenizer kennt diese Teilw\u00f6rter aus dem Training. Deutsche Komposita kosten oft mehr Token als englische W\u00f6rter gleicher Bedeutung." },
+      { text: "Geschwindigkeitsbegrenzung", tokens: ["Gesch","wind","igkeits","begrenz","ung"], explanation: "5 Token f\u00fcr ein Wort! 'Geschwindigkeitsbegrenzung' (speed limit) ist zu selten f\u00fcr einen einzelnen Token. Der Tokenizer zerlegt es in bekannte Silben und Fragmente." },
+      { text: "Die Donaudampfschifffahrt.", tokens: ["Die"," Don","aud","ampf","sch","iff","fahrt","."], explanation: "Das ber\u00fchmte Kompositum 'Donaudampfschifffahrt' wird in 7 Token zerlegt! Deutsch ist eine der 'teuersten' Sprachen f\u00fcr Tokenizer wegen dieser langen zusammengesetzten W\u00f6rter." }
+    ]
+  },
+  {
+    title: "Zahlen & Sonderzeichen",
+    description: "Zahlen und Sonderzeichen werden \u00fcberraschend tokenisiert. LLMs sehen Zahlen nicht als Mengen \u2014 nur als Zeichenketten.",
+    concept: "Nicht-Wort-Tokenisierung",
+    takeaway: "Zahlen werden in Zifferngruppen aufgeteilt, nicht nach Wert. '1.000' und '10'+'00' sind f\u00fcr das Modell v\u00f6llig verschieden. Deshalb k\u00e4mpfen LLMs mit Mathematik.",
+    challenges: [
+      { text: "Preis: 1.234,56\u20ac", tokens: ["Pre","is",":"," ","1",".","234",",","56","\u20ac"], explanation: "Der Preis wird in 8 Token zerlegt! Jedes Satzzeichen und jede Zifferngruppe ist separat. Das \u20ac-Zeichen ist ein eigenes Token." },
+      { text: "Tel: +49-30-12345", tokens: ["Tel",":","+","49","-","30","-","123","45"], explanation: "Eine Telefonnummer \u2014 9 Token! Jeder Bindestrich und jede Zifferngruppe wird getrennt. '+' ist ein eigenes Token." },
+      { text: "Stra\u00dfe Nr. 42a", tokens: ["Stra","\u00dfe"," Nr","."," ","42","a"], explanation: "Das '\u00df' wird oft abgetrennt, weil es ein nicht-ASCII-Zeichen ist. '42a' wird in '42' + 'a' geteilt \u2014 der Buchstabe nach der Zahl bildet ein eigenes Token." }
+    ]
+  },
+  {
+    title: "Umlaute & Unicode",
+    description: "Was passiert, wenn der Tokenizer auf deutsche Sonderzeichen, Emoji oder andere Schriften trifft?",
+    concept: "Multibyte-Tokenisierung",
+    takeaway: "Umlaute und Sonderzeichen kosten oft extra Token. Ein '\u00e4' oder '\u00fc' kann ein Wort in mehr Token aufteilen als dasselbe Wort ohne Umlaut. Nicht-lateinische Schriften kosten noch mehr.",
+    challenges: [
+      { text: "F\u00fcnf \u00dcbungen f\u00fcr \u00c4rzte", tokens: ["F","\u00fc","nf"," \u00dc","bungen"," f","\u00fc","r"," \u00c4","rzte"], explanation: "Jeder Umlaut kann zu einer Aufteilung f\u00fchren! 'F\u00fcnf' wird zu 'F'+'\u00fc'+'nf'. Deutsche Texte brauchen durch Umlaute oft mehr Token als englische Texte gleicher L\u00e4nge." },
+      { text: "Ich \u2764\ufe0f Berlin \ud83c\udde9\ud83c\uddea", tokens: ["Ich"," \u2764","\\ufe0f"," Berlin"," \ud83c\udde9","\ud83c\uddea"], explanation: "Das Herz-Emoji ist 2 Token, die Deutschland-Flagge ebenfalls 2 Token. 'Berlin' als h\u00e4ufiger Name bleibt ein Token. Emoji sind \u00fcberraschend 'teuer'!" },
+      { text: "caf\u00e9 vs Caf\u00e9", tokens: ["caf","\u00e9"," vs"," Caf","\u00e9"], explanation: "Das '\u00e9' wird jedes Mal abgetrennt. Gro\u00df- vs. Kleinschreibung kann die Tokenisierung auch ver\u00e4ndern \u2014 'Caf' und 'caf' k\u00f6nnen verschiedene Token sein." }
+    ]
+  },
+  {
+    title: "Das Gesamtbild",
+    description: "Jetzt kennst du die Grundlagen. Kombinieren wir alles in kniffligen Beispielen.",
+    concept: "Alles zusammen",
+    takeaway: "Tokenisierung ist der unsichtbare erste Schritt jeder LLM-Interaktion. Sie bestimmt, was das Modell 'sieht', wie viel es kostet, und warum es bei bestimmten Aufgaben Schwierigkeiten hat.",
+    challenges: [
+      { text: "LLMs k\u00f6nnen \"Erdbeere\" buchstabieren?", tokens: ["LL","Ms"," k","\u00f6","nnen"," \"","Erd","be","ere","\""," buch","stab","ieren","?"], explanation: "'Erdbeere' wird in 3 Token zerlegt, 'buchstabieren' in 3. Das Wort \u00fcber Buchstabier-F\u00e4higkeiten ist selbst schwer zu tokenisieren \u2014 eine gewisse Ironie!" },
+      { text: "info@beispiel.de/pfad", tokens: ["info","@","bei","spiel",".de","/","pf","ad"], explanation: "E-Mail-Adressen und Pfade haben eigene Muster. '.de' bleibt ein Token, weil es so h\u00e4ufig vorkommt. 'beispiel' wird zerlegt, weil es seltener ist als englische Domains." },
+      { text: "Tokio (\u6771\u4eac) \ud83c\uddef\ud83c\uddf5 ist cool", tokens: ["Tok","io"," (","\\u6771","\\u4eac",")"," \ud83c\uddef","\ud83c\uddf5"," ist"," cool"], explanation: "Der ultimative Mix! 'Tokio' (2 Token), japanische Kanji (2 Token f\u00fcr 2 Zeichen), Japan-Flagge (2 Token), plus deutscher Text. Gleiche Information, verschiedene Kosten je nach Schrift." }
+    ]
+  }
+]},
+fr: { rounds: [
+  {
+    title: "Mots simples",
+    description: "Commen\u00e7ons doucement. Comment l\u2019IA d\u00e9coupe les phrases fran\u00e7aises courantes\u00a0? Ce n\u2019est pas qu\u2019une question d\u2019espaces...",
+    concept: "Tokenisation de base",
+    takeaway: "Les espaces marquent g\u00e9n\u00e9ralement les limites de tokens, mais la ponctuation re\u00e7oit son propre token. Les accents peuvent aussi causer des coupures suppl\u00e9mentaires.",
+    challenges: [
+      { text: "Le chat dort.", tokens: ["Le"," chat"," dort","."], explanation: "Les mots simples obtiennent leur propre token, et le point est s\u00e9par\u00e9. Notez que tous les tokens sauf le premier commencent par un espace." },
+      { text: "Bonjour, le monde!", tokens: ["Bon","jour",","," le"," monde","!"], explanation: "'Bonjour' est assez courant pour rester entier parfois, mais peut aussi \u00eatre d\u00e9coup\u00e9 en 'Bon'+'jour'. La virgule et le point d\u2019exclamation sont des tokens s\u00e9par\u00e9s." },
+      { text: "Je n'ai pas compris.", tokens: ["Je"," n","'","ai"," pas"," compris","."], explanation: "L\u2019apostrophe dans 'n\u2019ai' cr\u00e9e une coupure : 'n' + \"'\" + 'ai'. Les \u00e9lisions fran\u00e7aises co\u00fbtent des tokens suppl\u00e9mentaires." }
+    ]
+  },
+  {
+    title: "Mots longs & rares",
+    description: "Les mots courants restent entiers, mais que se passe-t-il avec des mots inhabituels ou tr\u00e8s longs\u00a0?",
+    concept: "D\u00e9coupage BPE en sous-mots",
+    takeaway: "L\u2019algorithme BPE construit les tokens par fr\u00e9quence. 'le' appara\u00eet des millions de fois, c\u2019est un token. Les mots rares sont d\u00e9coup\u00e9s en morceaux que le tokeniseur conna\u00eet.",
+    challenges: [
+      { text: "Anticonstitutionnellement", tokens: ["Ant","icon","stit","ut","ionnel","lement"], explanation: "Le plus long mot du fran\u00e7ais courant devient 6 tokens\u00a0! Le tokeniseur le d\u00e9coupe en fragments reconnaissables. Plus le mot est rare, plus il co\u00fbte de tokens." },
+      { text: "Les chrysanth\u00e8mes fleurissent.", tokens: ["Les"," chrys","anth","\u00e8","mes"," fleur","issent","."], explanation: "'chrysanth\u00e8mes' devient 5 tokens. L\u2019accent grave sur '\u00e8' provoque une coupure suppl\u00e9mentaire. Les caract\u00e8res accentu\u00e9s co\u00fbtent souvent un token de plus." },
+      { text: "Le d\u00e9veloppement durable.", tokens: ["Le"," d","\u00e9","vel","oppement"," durable","."], explanation: "L\u2019accent sur '\u00e9' coupe 'd\u00e9veloppement' diff\u00e9remment de l\u2019anglais 'development'. Les accents fran\u00e7ais ajoutent r\u00e9guli\u00e8rement des tokens suppl\u00e9mentaires." }
+    ]
+  },
+  {
+    title: "Nombres & code",
+    description: "Les nombres et le code se tokenisent de mani\u00e8re surprenante. Les LLM ne voient pas les nombres comme des quantit\u00e9s.",
+    concept: "Tokenisation non-verbale",
+    takeaway: "Les nombres sont d\u00e9coup\u00e9s en groupes de chiffres. '1\u00a0000' et '10'+'00' sont des s\u00e9quences de tokens diff\u00e9rentes. C\u2019est pourquoi les LLM ont du mal avec l\u2019arithm\u00e9tique.",
+    challenges: [
+      { text: "Prix : 1 234,56\u20ac", tokens: ["Prix"," :"," ","1"," ","234",",","56","\u20ac"], explanation: "Le prix devient 7 tokens num\u00e9riques\u00a0! Chaque espace et chaque signe de ponctuation est s\u00e9par\u00e9. Le '\u20ac' est un token \u00e0 part." },
+      { text: "def bonjour():", tokens: ["def"," bon","jour","():"], explanation: "Code Python en fran\u00e7ais\u00a0! 'def' est un token connu, mais 'bonjour' peut \u00eatre d\u00e9coup\u00e9 en 'bon'+'jour'. '():' reste souvent un seul token car ce motif est tr\u00e8s fr\u00e9quent dans le code." },
+      { text: "15/03/2024 14h30", tokens: ["15","/","03","/","202","4"," ","14","h","30"], explanation: "Une date et heure fran\u00e7aises \u2014 10 tokens\u00a0! Chaque barre oblique et chaque groupe de chiffres est s\u00e9par\u00e9. Le 'h' de l\u2019heure est son propre token." }
+    ]
+  },
+  {
+    title: "Accents & caract\u00e8res sp\u00e9ciaux",
+    description: "Le fran\u00e7ais regorge d\u2019accents et de caract\u00e8res sp\u00e9ciaux. Comment le tokeniseur g\u00e8re-t-il ces particularit\u00e9s\u00a0?",
+    concept: "Tokenisation multi-octets",
+    takeaway: "Les accents et caract\u00e8res sp\u00e9ciaux co\u00fbtent souvent des tokens suppl\u00e9mentaires. Le fran\u00e7ais paie un 'surco\u00fbt' par rapport \u00e0 l\u2019anglais \u00e0 cause de ses accents \u2014 une question d\u2019\u00e9quit\u00e9 en IA.",
+    challenges: [
+      { text: "\u00c0 No\u00ebl, j'\u00e9tais l\u00e0.", tokens: ["\u00c0"," No","\u00eb","l",","," j","'","\u00e9","tais"," l","\u00e0","."], explanation: "Trois accents diff\u00e9rents (\u00c0, \u00eb, \u00e9, \u00e0), chacun provoquant potentiellement une coupure. 'No\u00ebl' devient 3 tokens \u00e0 cause du tr\u00e9ma. Les accents fran\u00e7ais co\u00fbtent cher en tokens." },
+      { text: "J'adore \u2764\ufe0f Paris \ud83c\uddeb\ud83c\uddf7", tokens: ["J","'","adore"," \u2764","\\ufe0f"," Paris"," \ud83c\uddeb","\ud83c\uddf7"], explanation: "Le c\u0153ur est 2 tokens, le drapeau fran\u00e7ais aussi 2 tokens. 'Paris' reste un seul token car c\u2019est tr\u00e8s fr\u00e9quent. L\u2019apostrophe dans 'J\u2019adore' cr\u00e9e une coupure." },
+      { text: "\u00ab Clich\u00e9 \u00bb vs caf\u00e9", tokens: ["\u00ab"," Clich","\u00e9"," \u00bb"," vs"," caf","\u00e9"], explanation: "Les guillemets fran\u00e7ais \u00ab \u00bb sont chacun un token. L\u2019accent sur '\u00e9' est s\u00e9par\u00e9 dans les deux cas. M\u00eame les mots que l\u2019anglais a emprunt\u00e9s au fran\u00e7ais co\u00fbtent plus en fran\u00e7ais\u00a0!" }
+    ]
+  },
+  {
+    title: "Le tableau complet",
+    description: "Combinons tout ce que nous avons appris avec des exemples complexes.",
+    concept: "Tout ensemble",
+    takeaway: "La tokenisation est l\u2019\u00e9tape invisible qui d\u00e9termine ce que le mod\u00e8le 'voit', combien \u00e7a co\u00fbte, et pourquoi il \u00e9choue parfois. Comprendre les tokens, c\u2019est comprendre l\u2019IA.",
+    challenges: [
+      { text: "L'IA ne peut pas \u00e9peler \u00ab fraise \u00bb", tokens: ["L","'","IA"," ne"," peut"," pas"," \u00e9","pel","er"," \u00ab"," fra","ise"," \u00bb"], explanation: "'fraise' est d\u00e9coup\u00e9 en 'fra'+'ise'. '\u00e9peler' perd son accent en token s\u00e9par\u00e9. Les guillemets fran\u00e7ais co\u00fbtent un token chacun. 13 tokens pour 8 mots\u00a0!" },
+      { text: "contact@exemple.fr/chemin", tokens: ["contact","@","exemple",".fr","/","chem","in"], explanation: "'.fr' reste un seul token (domaine tr\u00e8s courant). 'exemple' est assez fr\u00e9quent pour rester entier. 'chemin' se d\u00e9coupe en 'chem'+'in'." },
+      { text: "Tokyo (\u6771\u4eac) \ud83c\uddef\ud83c\uddf5 est cool", tokens: ["Tokyo"," (","\\u6771","\\u4eac",")"," \ud83c\uddef","\ud83c\uddf5"," est"," cool"], explanation: "Le m\u00e9lange ultime\u00a0! Anglais ('Tokyo'), japonais (2 tokens pour 2 caract\u00e8res), drapeau (2 tokens), fran\u00e7ais ('est', 'cool'). M\u00eame information, co\u00fbts diff\u00e9rents selon l\u2019\u00e9criture." }
+    ]
+  }
+]},
+it: { rounds: [
+  {
+    title: "Parole semplici",
+    description: "Iniziamo facilmente. Come divide l\u2019IA le frasi italiane comuni? Non \u00e8 solo questione di spazi...",
+    concept: "Tokenizzazione di base",
+    takeaway: "Gli spazi solitamente marcano i confini dei token, ma la punteggiatura ottiene il suo token. Punti, virgole e accenti vengono separati.",
+    challenges: [
+      { text: "Il gatto dorme.", tokens: ["Il"," gatto"," dorme","."], explanation: "Parole semplici ottengono il proprio token, e il punto \u00e8 separato. Nota: tutti i token tranne il primo iniziano con uno spazio." },
+      { text: "Ciao, mondo!", tokens: ["C","iao",","," mondo","!"], explanation: "'Ciao' potrebbe essere diviso in 'C'+'iao' perch\u00e9 il tokenizer ha imparato questi frammenti separatamente. Virgola e punto esclamativo sono token separati." },
+      { text: "Non l'ho capito.", tokens: ["Non"," l","'ho"," cap","ito","."], explanation: "L\u2019apostrofo in 'l\u2019ho' crea una divisione. Le elisioni italiane costano token extra, proprio come le contrazioni inglesi." }
+    ]
+  },
+  {
+    title: "Parole lunghe & rare",
+    description: "Le parole comuni restano intere, ma cosa succede con parole insolite o molto lunghe?",
+    concept: "Divisione BPE in sotto-parole",
+    takeaway: "L\u2019algoritmo BPE costruisce i token per frequenza. 'il' appare milioni di volte ed \u00e8 un token. Le parole rare vengono divise in pezzi che il tokenizzatore conosce.",
+    challenges: [
+      { text: "Precipitevolissimevolmente", tokens: ["Pre","cip","ite","vol","issime","vol","mente"], explanation: "La famosa parola lunga italiana diventa 7 token! Il tokenizzatore la scompone in frammenti riconoscibili. Pi\u00f9 la parola \u00e8 rara, pi\u00f9 token costa." },
+      { text: "L'internazionalizzazione.", tokens: ["L","'inter","nazional","izzazione","."], explanation: "'internazionalizzazione' viene diviso in parti riconoscibili: 'inter' + 'nazional' + 'izzazione'. Il tokenizzatore scopre accidentalmente la morfologia!" },
+      { text: "Gli elettroencefalogrammi.", tokens: ["Gli"," elett","ro","ence","fal","ogramm","i","."], explanation: "'elettroencefalogrammi' diventa 7 token! Una parola medica rara viene scomposta in piccoli frammenti. L\u2019italiano tecnico \u00e8 'costoso' in token." }
+    ]
+  },
+  {
+    title: "Numeri & codice",
+    description: "I numeri e il codice si tokenizzano in modi sorprendenti. Gli LLM non vedono i numeri come quantit\u00e0.",
+    concept: "Tokenizzazione non-verbale",
+    takeaway: "I numeri vengono divisi in gruppi di cifre, non per valore numerico. '1000' e '10'+'00' sono sequenze di token diverse. Ecco perch\u00e9 gli LLM faticano con l\u2019aritmetica.",
+    challenges: [
+      { text: "Prezzo: 1.234,56\u20ac", tokens: ["Pre","zzo",":"," ","1",".","234",",","56","\u20ac"], explanation: "Il prezzo diventa 8 token numerici! Ogni segno di punteggiatura e ogni gruppo di cifre \u00e8 separato. Il '\u20ac' \u00e8 un token a parte." },
+      { text: "def ciao():", tokens: ["def"," ci","ao","():"], explanation: "Codice Python in italiano! 'def' \u00e8 un token noto, ma 'ciao' pu\u00f2 essere diviso in 'ci'+'ao'. '():' resta spesso un solo token." },
+      { text: "15/03/2024 ore 14:30", tokens: ["15","/","03","/","202","4"," ore"," ","14",":","30"], explanation: "Data e ora italiane \u2014 11 token! Ogni barra e ogni gruppo di cifre \u00e8 separato. La parola 'ore' \u00e8 il suo token." }
+    ]
+  },
+  {
+    title: "Accenti & caratteri speciali",
+    description: "L\u2019italiano ha i suoi accenti e caratteri speciali. Come li gestisce il tokenizzatore?",
+    concept: "Tokenizzazione multi-byte",
+    takeaway: "Gli accenti e i caratteri speciali costano spesso token extra. L\u2019italiano paga un 'sovrapprezzo' rispetto all\u2019inglese per i suoi accenti \u2014 una questione di equit\u00e0 nell\u2019IA.",
+    challenges: [
+      { text: "Perch\u00e9 la citt\u00e0 \u00e8 cos\u00ec?", tokens: ["Per","ch","\u00e9"," la"," citt","\u00e0"," \u00e8"," cos","\u00ec","?"], explanation: "Tre accenti (\u00e9, \u00e0, \u00ec), ognuno potenzialmente causa di una divisione. 'Perch\u00e9' diventa 3 token, 'citt\u00e0' diventa 2. Gli accenti italiani costano caro in token." },
+      { text: "Adoro \u2764\ufe0f Roma \ud83c\uddee\ud83c\uddf9", tokens: ["Ad","oro"," \u2764","\\ufe0f"," Roma"," \ud83c\uddee","\ud83c\uddf9"], explanation: "Il cuore \u00e8 2 token, la bandiera italiana anche 2 token. 'Roma' resta un solo token perch\u00e9 \u00e8 molto frequente. 'Adoro' si divide in 'Ad'+'oro'." },
+      { text: "\u00abCiao\u00bb vs ciao", tokens: ["\u00ab","C","iao","\u00bb"," vs"," ci","ao"], explanation: "Le virgolette italiane \u00ab \u00bb sono ciascuna un token. 'Ciao' con la maiuscola e 'ciao' con la minuscola possono tokenizzarsi diversamente!" }
+    ]
+  },
+  {
+    title: "Il quadro completo",
+    description: "Combiniamo tutto quello che abbiamo imparato con esempi complessi.",
+    concept: "Tutto insieme",
+    takeaway: "La tokenizzazione \u00e8 il primo passo invisibile di ogni interazione con un LLM. Determina cosa il modello 'vede', quanto costa, e perch\u00e9 a volte fallisce. Capire i token significa capire l\u2019IA.",
+    challenges: [
+      { text: "L'IA non sa scrivere \"fragola\"", tokens: ["L","'","IA"," non"," sa"," scrivere"," \"","frag","ola","\""], explanation: "'fragola' \u00e8 diviso in 'frag'+'ola'. L\u2019apostrofo crea una divisione. Le virgolette costano un token ciascuna. 10 token per 7 parole!" },
+      { text: "info@esempio.it/percorso", tokens: ["info","@","esempio",".it","/","perc","orso"], explanation: "'.it' resta un solo token (dominio molto comune). 'esempio' \u00e8 abbastanza frequente da restare intero. 'percorso' si divide." },
+      { text: "Tokyo (\u6771\u4eac) \ud83c\uddef\ud83c\uddf5 \u00e8 bella", tokens: ["Tokyo"," (","\\u6771","\\u4eac",")"," \ud83c\uddef","\ud83c\uddf5"," \u00e8"," bella"], explanation: "Il mix definitivo! Inglese ('Tokyo'), giapponese (2 token per 2 caratteri), bandiera (2 token), italiano ('\u00e8', 'bella'). Stessa informazione, costi diversi per ogni scrittura." }
+    ]
+  }
+]}
+};
+
+// ==================== STATE ====================
+let lang = 'en';
+let gameData = null;
+const state = {
+  round: 0, challenge: 0, score: 0,
+  roundScore: 0, roundPerfect: 0, roundTotal: 0,
+  totalChallenges: 0, completedChallenges: 0, maxScore: 0,
+  userSplits: new Set() // char indices where user placed splits
+};
+
+const $ = id => document.getElementById(id);
+const show = id => { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); $(id).classList.add('active'); };
+const t = () => UI[lang];
+
+function getCurRound() { return gameData.rounds[state.round]; }
+function getCurChallenge() { return getCurRound().challenges[state.challenge]; }
+
+// ==================== INIT ====================
+function init() {
+  const langs = [
+    { code:'en', flag:'\ud83c\uddec\ud83c\udde7', label:'English' },
+    { code:'de', flag:'\ud83c\udde9\ud83c\uddea', label:'Deutsch' },
+    { code:'fr', flag:'\ud83c\uddeb\ud83c\uddf7', label:'Fran\u00e7ais' },
+    { code:'it', flag:'\ud83c\uddee\ud83c\uddf9', label:'Italiano' },
+  ];
+  const grid = $('lang-grid');
+  grid.innerHTML = '';
+  langs.forEach(l => {
+    const btn = document.createElement('button');
+    btn.className = 'lang-btn';
+    btn.innerHTML = `<span class="lang-flag">${l.flag}</span>${l.label}`;
+    btn.addEventListener('click', () => startWithLang(l.code));
+    grid.appendChild(btn);
+  });
+  $('title-subtitle').textContent = UI.en.subtitle;
+}
+
+function startWithLang(code) {
+  lang = code;
+  document.documentElement.lang = code;
+  gameData = GAME_DATA_ALL[code];
+  $('title-subtitle').textContent = t().subtitle;
+
+  state.round = 0; state.score = 0; state.completedChallenges = 0;
+  state.totalChallenges = 0; state.maxScore = 0;
+  gameData.rounds.forEach(r => {
+    state.totalChallenges += r.challenges.length;
+    state.maxScore += r.challenges.length * 100;
+  });
+
+  showRoundIntro();
+}
+
+// ==================== GAME FLOW ====================
+function showRoundIntro() {
+  const round = getCurRound();
+  $('intro-round-num').textContent = t().roundN(state.round + 1, gameData.rounds.length);
+  $('intro-title').textContent = round.title;
+  $('intro-desc').textContent = round.description;
+  $('intro-concept').textContent = round.concept;
+  $('btn-begin').textContent = t().begin;
+  show('screen-round-intro');
+}
+
+function startRound() {
+  state.challenge = 0;
+  state.roundScore = 0; state.roundPerfect = 0; state.roundTotal = 0;
+  show('screen-play');
+  showChallenge();
+}
+
+function showChallenge() {
+  const round = getCurRound();
+  const ch = getCurChallenge();
+
+  $('play-round-label').textContent = t().roundN(state.round + 1, gameData.rounds.length);
+  $('play-round-title').textContent = round.title;
+  $('play-score').textContent = state.score;
+  $('play-instruction').textContent = t().instruction;
+  $('btn-submit').textContent = t().submit;
+  $('btn-clear').textContent = t().clear;
+  $('explanation-label').textContent = t().howItWorks;
+
+  // Reset UI
+  $('revealed-area').style.display = 'none';
+  $('score-row').style.display = 'none';
+  $('explanation-area').classList.remove('visible');
+  $('continue-row').style.display = 'none';
+  $('submit-row').style.display = 'flex';
+  state.userSplits = new Set();
+
+  // Build character grid
+  const area = $('text-area');
+  area.innerHTML = '';
+  const text = ch.text;
+  for (let i = 0; i < text.length; i++) {
+    const unit = document.createElement('span');
+    unit.className = 'char-unit';
+    unit.dataset.index = i;
+    unit.innerHTML = `<span class="char-text">${escHtml(text[i])}</span>`;
+    unit.addEventListener('click', (e) => toggleSplit(i, e));
+    area.appendChild(unit);
+  }
+
+  updateProgress();
+}
+
+function escHtml(c) {
+  return c.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function toggleSplit(charIndex, e) {
+  if (charIndex === 0) return; // Can't split before first char
+  const rect = e.currentTarget.getBoundingClientRect();
+  const clickX = e.clientX - rect.left;
+  const isLeftHalf = clickX < rect.width / 2;
+
+  // If clicking left half, split before this char; right half, split after
+  const splitAt = isLeftHalf ? charIndex : charIndex + 1;
+  if (splitAt === 0 || splitAt >= getCurChallenge().text.length) return;
+
+  if (state.userSplits.has(splitAt)) {
+    state.userSplits.delete(splitAt);
+    removeSplitMarker(splitAt);
+  } else {
+    state.userSplits.add(splitAt);
+    addSplitMarker(splitAt);
+  }
+}
+
+function addSplitMarker(charIndex) {
+  removeSplitMarker(charIndex); // Prevent duplicates
+  const unit = $('text-area').querySelector(`[data-index="${charIndex}"]`);
+  if (!unit) return;
+  const marker = document.createElement('div');
+  marker.className = 'split-marker';
+  marker.dataset.splitAt = charIndex;
+  unit.appendChild(marker);
+}
+
+function removeSplitMarker(charIndex) {
+  const marker = $('text-area').querySelector(`.split-marker[data-split-at="${charIndex}"]`);
+  if (marker) marker.remove();
+}
+
+function clearSplits() {
+  state.userSplits.clear();
+  $('text-area').querySelectorAll('.split-marker').forEach(m => m.remove());
+}
+
+function submitSplits() {
+  const ch = getCurChallenge();
+  const text = ch.text;
+
+  // Calculate actual split positions from tokens
+  const actualSplits = new Set();
+  let pos = 0;
+  for (const tok of ch.tokens) {
+    // Handle display tokens (some use escape sequences for visual clarity)
+    let tokText = tok;
+    // The actual text positions
+    pos += tokText.length;
+    if (pos < text.length) actualSplits.add(pos);
+  }
+
+  // Score: count matching splits
+  const userArr = [...state.userSplits].sort((a,b) => a-b);
+  const actualArr = [...actualSplits].sort((a,b) => a-b);
+
+  let matched = 0;
+  for (const s of userArr) {
+    if (actualSplits.has(s)) matched++;
+  }
+
+  const totalSplits = actualArr.length;
+  const extraSplits = userArr.length - matched;
+  const missedSplits = totalSplits - matched;
+
+  // Score: base on accuracy
+  let points = 0;
+  if (matched === totalSplits && extraSplits === 0) {
+    points = 100; state.roundPerfect++;
+  } else if (totalSplits > 0) {
+    const precision = userArr.length > 0 ? matched / userArr.length : 0;
+    const recall = matched / totalSplits;
+    const f1 = precision + recall > 0 ? 2 * precision * recall / (precision + recall) : 0;
+    points = Math.round(f1 * 80);
+  }
+
+  state.score += points;
+  state.roundScore += points;
+  state.roundTotal++;
+
+  // Hide submit, show results
+  $('submit-row').style.display = 'none';
+
+  // Show revealed tokens
+  const revealed = $('revealed-area');
+  revealed.style.display = 'flex';
+  revealed.innerHTML = '';
+  ch.tokens.forEach((tok, i) => {
+    const chip = document.createElement('span');
+    chip.className = `tok-chip tc${i % 8}`;
+    chip.textContent = tok;
+
+    // Check if boundaries of this token were correctly identified
+    revealed.appendChild(chip);
+  });
+
+  // Score display
+  const scoreRow = $('score-row');
+  scoreRow.style.display = 'flex';
+  const quality = points >= 100 ? 'good' : points >= 50 ? 'ok' : 'bad';
+  const qualityLabel = points >= 100 ? t().perfect : points >= 70 ? t().great : points >= 40 ? t().good : t().missed;
+  scoreRow.innerHTML = `
+    <span class="score-pill ${quality}">${qualityLabel} +${points}</span>
+    <span class="score-pill ok">${t().tokensCount(ch.tokens.length)}</span>
+  `;
+
+  // Explanation
+  $('explanation-text').textContent = ch.explanation;
+  $('explanation-area').classList.add('visible');
+
+  // Continue
+  $('continue-row').style.display = 'flex';
+  $('btn-continue').textContent = t().continue_;
+
+  // Update score header
+  $('play-score').textContent = state.score;
+}
+
+function nextChallenge() {
+  state.completedChallenges++;
+  const round = getCurRound();
+  if (state.challenge + 1 < round.challenges.length) {
+    state.challenge++;
+    showChallenge();
+    return;
+  }
+  showRoundSummary();
+}
+
+function showRoundSummary() {
+  const round = getCurRound();
+  $('summary-round-num').textContent = t().roundComplete(state.round + 1);
+  $('summary-score').textContent = `+${state.roundScore}`;
+  $('summary-breakdown').textContent = t().breakdown(state.roundPerfect, state.roundTotal, state.score);
+  $('summary-takeaway-label').textContent = t().keyTakeaway;
+  $('summary-takeaway').textContent = round.takeaway;
+  $('btn-next-round').textContent = state.round + 1 >= gameData.rounds.length ? t().seeResults : t().nextRound;
+  show('screen-round-summary');
+}
+
+function nextRound() {
+  if (state.round + 1 >= gameData.rounds.length) { showComplete(); return; }
+  state.round++; state.challenge = 0;
+  showRoundIntro();
+}
+
+function showComplete() {
+  const pct = state.score / state.maxScore;
+  const idx = pct >= 0.9 ? 4 : pct >= 0.75 ? 3 : pct >= 0.5 ? 2 : pct >= 0.25 ? 1 : 0;
+
+  $('complete-heading').textContent = t().gameComplete;
+  $('final-score').textContent = state.score;
+  $('final-title').textContent = t().titles[idx];
+  $('final-desc').textContent = t().titleDescs[idx];
+  $('btn-play-again').textContent = t().playAgain;
+  $('btn-all-games').textContent = t().allGames;
+
+  const grid = $('concepts-grid');
+  grid.innerHTML = '';
+  t().concepts.forEach(([title, desc]) => {
+    const card = document.createElement('div');
+    card.className = 'concept-card';
+    card.innerHTML = `<div class="cc-title">${title}</div><div class="cc-desc">${desc}</div>`;
+    grid.appendChild(card);
+  });
+
+  show('screen-complete');
+}
+
+function updateProgress() {
+  $('progress-fill').style.width = `${(state.completedChallenges / state.totalChallenges) * 100}%`;
+  $('progress-label').textContent = t().stepN(state.completedChallenges + 1, state.totalChallenges);
+}
+
+// ==================== KEYBOARD ====================
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' || e.key === ' ') {
+    const contRow = $('continue-row');
+    if (contRow.style.display !== 'none') {
+      e.preventDefault();
+      $('btn-continue').click();
+      return;
+    }
+    const submitRow = $('submit-row');
+    if (submitRow.style.display !== 'none' && document.querySelector('#screen-play.active')) {
+      e.preventDefault();
+      $('btn-submit').click();
+      return;
+    }
+    const active = document.querySelector('.screen.active');
+    if (active) {
+      const btn = active.querySelector('.btn-primary');
+      if (btn) { e.preventDefault(); btn.click(); }
+    }
+  }
+});
+
+init();
+</script>
+</body>
+</html>
