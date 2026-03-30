@@ -286,6 +286,8 @@
     border:1px solid rgba(255,255,255,0.1); font-weight:600;
   }
   .btn-secondary:hover { background:var(--bg-hover); }
+  .back-link { color:var(--text-dim); text-decoration:none; font-size:0.9rem; position:fixed; top:16px; left:16px; }
+  .back-link:hover { color:var(--text); }
 
   @media (max-width:500px) {
     #screen-title h1 { font-size:1.8rem; }
@@ -297,6 +299,8 @@
 </style>
 </head>
 <body>
+
+<a href="../" class="back-link">&larr; All Games</a>
 
 <!-- Title Screen -->
 <div id="screen-title" class="screen active">
@@ -2291,7 +2295,13 @@ document.addEventListener('keydown', e => {
   }
 });
 
-initTitle();
+// Auto-start if lang passed via URL
+const urlLang = new URLSearchParams(window.location.search).get('lang');
+if (urlLang && GAME_DATA_ALL[urlLang]) {
+  startWithLang(urlLang);
+} else {
+  initTitle();
+}
 </script>
 </body>
 </html>

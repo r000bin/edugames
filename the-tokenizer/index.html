@@ -920,7 +920,14 @@ document.addEventListener('keydown', e => {
   }
 });
 
-init();
+// Auto-start if lang passed via URL
+const urlLang = new URLSearchParams(window.location.search).get('lang');
+if (urlLang && GAME_DATA_ALL[urlLang]) {
+  init();
+  startWithLang(urlLang);
+} else {
+  init();
+}
 </script>
 </body>
 </html>

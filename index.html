@@ -17,10 +17,8 @@
   * { margin:0; padding:0; box-sizing:border-box; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-    padding: 24px 16px;
+    background: var(--bg); color: var(--text);
+    min-height: 100vh; padding: 24px 16px;
   }
   .container { max-width: 800px; margin: 0 auto; }
   header { text-align: center; margin-bottom: 48px; padding-top: 32px; }
@@ -28,114 +26,63 @@
   header h1 span { color: var(--accent); }
   header p { color: var(--text-dim); font-size: 1.1rem; max-width: 520px; margin: 0 auto; line-height: 1.6; }
   .badge {
-    display: inline-block;
-    background: rgba(99,102,241,0.15);
-    color: var(--accent);
-    font-size: 0.8rem;
-    font-weight: 700;
-    padding: 4px 12px;
-    border-radius: 99px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: 16px;
+    display: inline-block; background: rgba(99,102,241,0.15); color: var(--accent);
+    font-size: 0.8rem; font-weight: 700; padding: 4px 12px; border-radius: 99px;
+    text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 16px;
   }
 
-  .games-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 20px;
+  /* Language picker */
+  .lang-bar {
+    display: flex; justify-content: center; gap: 8px; margin-top: 20px; flex-wrap: wrap;
   }
+  .lang-btn {
+    background: var(--bg-card); border: 2px solid rgba(99,102,241,0.15); color: var(--text-dim);
+    padding: 8px 16px; border-radius: 99px; font-size: 0.9rem; font-weight: 600;
+    cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px;
+    font-family: inherit;
+  }
+  .lang-btn:hover { border-color: rgba(99,102,241,0.4); color: var(--text); }
+  .lang-btn.active { border-color: var(--accent); color: var(--text); background: rgba(99,102,241,0.1); }
+  .lang-flag { font-size: 1.1rem; }
 
+  .games-grid { display: grid; grid-template-columns: 1fr; gap: 20px; }
   .game-card {
-    background: var(--bg-card);
-    border: 1px solid rgba(255,255,255,0.06);
-    border-radius: var(--radius);
-    padding: 28px 28px 24px;
-    text-decoration: none;
-    color: var(--text);
-    display: block;
-    transition: all 0.25s;
-    position: relative;
-    overflow: hidden;
+    background: var(--bg-card); border: 1px solid rgba(255,255,255,0.06);
+    border-radius: var(--radius); padding: 28px 28px 24px;
+    text-decoration: none; color: var(--text); display: block;
+    transition: all 0.25s; position: relative; overflow: hidden;
   }
   .game-card:hover {
-    border-color: rgba(99,102,241,0.4);
-    transform: translateY(-2px);
+    border-color: rgba(99,102,241,0.4); transform: translateY(-2px);
     box-shadow: 0 8px 32px rgba(99,102,241,0.12);
   }
-  .game-card .card-top {
-    display: flex;
-    align-items: flex-start;
-    gap: 16px;
-    margin-bottom: 12px;
-  }
+  .game-card .card-top { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 12px; }
   .game-icon {
-    font-size: 2.2rem;
-    line-height: 1;
-    flex-shrink: 0;
-    width: 52px;
-    height: 52px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(99,102,241,0.1);
-    border-radius: 12px;
+    font-size: 2.2rem; line-height: 1; flex-shrink: 0;
+    width: 52px; height: 52px; display: flex; align-items: center; justify-content: center;
+    background: rgba(99,102,241,0.1); border-radius: 12px;
   }
   .game-card h2 { font-size: 1.3rem; font-weight: 700; margin-bottom: 4px; }
-  .game-card .concept-tag {
-    font-size: 0.8rem;
-    color: var(--accent);
-    font-weight: 600;
-  }
-  .game-card p {
-    color: var(--text-dim);
-    font-size: 0.95rem;
-    line-height: 1.6;
-  }
+  .game-card .concept-tag { font-size: 0.8rem; color: var(--accent); font-weight: 600; }
+  .game-card p { color: var(--text-dim); font-size: 0.95rem; line-height: 1.6; }
   .game-card .play-hint {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    margin-top: 14px;
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: var(--accent);
+    display: inline-flex; align-items: center; gap: 6px;
+    margin-top: 14px; font-size: 0.9rem; font-weight: 600; color: var(--accent);
   }
-  .game-card .play-hint .arrow {
-    transition: transform 0.2s;
-  }
-  .game-card:hover .play-hint .arrow {
-    transform: translateX(4px);
-  }
-
-  .game-card.coming-soon {
-    opacity: 0.5;
-    pointer-events: none;
-  }
-  .game-card.coming-soon .play-hint {
-    color: var(--text-dim);
-  }
+  .game-card .play-hint .arrow { transition: transform 0.2s; }
+  .game-card:hover .play-hint .arrow { transform: translateX(4px); }
+  .game-card.coming-soon { opacity: 0.5; pointer-events: none; }
+  .game-card.coming-soon .play-hint { color: var(--text-dim); }
 
   .section-label {
-    font-size: 0.85rem;
-    font-weight: 700;
-    color: var(--text-dim);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin-bottom: 16px;
-    margin-top: 12px;
+    font-size: 0.85rem; font-weight: 700; color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 16px; margin-top: 12px;
   }
-
   footer {
-    text-align: center;
-    margin-top: 64px;
-    padding: 24px 0;
-    border-top: 1px solid rgba(255,255,255,0.06);
-    color: var(--text-dim);
-    font-size: 0.85rem;
-    line-height: 1.6;
+    text-align: center; margin-top: 64px; padding: 24px 0;
+    border-top: 1px solid rgba(255,255,255,0.06); color: var(--text-dim);
+    font-size: 0.85rem; line-height: 1.6;
   }
-
   @media (max-width: 500px) {
     header h1 { font-size: 1.8rem; }
     .game-card { padding: 20px; }
@@ -146,80 +93,147 @@
 <body>
 <div class="container">
   <header>
-    <div class="badge">Learn by playing</div>
-    <h1>How <span>LLMs</span> Work</h1>
-    <p>A collection of interactive games that teach you how Large Language Models generate text. No AI knowledge required.</p>
+    <div class="badge" id="badge"></div>
+    <h1 id="heading"></h1>
+    <p id="subtitle"></p>
+    <div class="lang-bar" id="lang-bar"></div>
   </header>
 
-  <div class="section-label">Games</div>
-  <div class="games-grid">
+  <div class="section-label" id="section-label"></div>
+  <div class="games-grid" id="games-grid"></div>
 
-    <a href="guess-the-token/" class="game-card">
-      <div class="card-top">
-        <div class="game-icon">&#127919;</div>
-        <div>
-          <h2>Guess the Next Token</h2>
-          <span class="concept-tag">Next-token prediction &middot; Probabilities &middot; Temperature</span>
-        </div>
-      </div>
-      <p>Step into the role of an LLM and predict what comes next, one token at a time. See probability distributions, learn why context matters, and discover how creativity emerges from randomness.</p>
-      <span class="play-hint">Play now <span class="arrow">&rarr;</span></span>
-    </a>
-
-    <a href="the-tokenizer/" class="game-card">
-      <div class="card-top">
-        <div class="game-icon">&#9986;</div>
-        <div>
-          <h2>The Tokenizer</h2>
-          <span class="concept-tag">Tokenization &middot; BPE &middot; Subword splitting</span>
-        </div>
-      </div>
-      <p>Where do you think the AI splits text into tokens? Click to place your guesses, then see the actual tokenization. From simple words to emojis, code, and numbers &mdash; prepare to be surprised.</p>
-      <span class="play-hint">Play now <span class="arrow">&rarr;</span></span>
-    </a>
-
-    <a href="#" class="game-card coming-soon">
-      <div class="card-top">
-        <div class="game-icon">&#128205;</div>
-        <div>
-          <h2>Word Space Explorer</h2>
-          <span class="concept-tag">Embeddings &middot; Similarity &middot; Vector arithmetic</span>
-        </div>
-      </div>
-      <p>Drag words onto a 2D map where distance means similarity. Can you figure out where &ldquo;king&rdquo; goes relative to &ldquo;queen&rdquo;? Explore vector arithmetic and discover how LLMs represent meaning.</p>
-      <span class="play-hint">Coming soon</span>
-    </a>
-
-    <a href="#" class="game-card coming-soon">
-      <div class="card-top">
-        <div class="game-icon">&#128161;</div>
-        <div>
-          <h2>Attention Spotlight</h2>
-          <span class="concept-tag">Attention mechanism &middot; Context</span>
-        </div>
-      </div>
-      <p>Which words does the model &ldquo;look at&rdquo; when predicting the next token? Draw your attention map and compare it to the model's actual attention weights.</p>
-      <span class="play-hint">Coming soon</span>
-    </a>
-
-    <a href="#" class="game-card coming-soon">
-      <div class="card-top">
-        <div class="game-icon">&#128269;</div>
-        <div>
-          <h2>Spot the Hallucination</h2>
-          <span class="concept-tag">Hallucination &middot; Fact-checking &middot; Confidence</span>
-        </div>
-      </div>
-      <p>Read AI-generated paragraphs and find the made-up facts. Models can be confidently wrong &mdash; learn to spot the tells and understand why hallucinations happen.</p>
-      <span class="play-hint">Coming soon</span>
-    </a>
-
-  </div>
-
-  <footer>
-    Learn how Large Language Models work through interactive games.<br>
-    No data science background needed.
-  </footer>
+  <footer id="footer"></footer>
 </div>
+
+<script>
+const LANGS = [
+  { code:'en', flag:'\ud83c\uddec\ud83c\udde7', label:'English' },
+  { code:'de', flag:'\ud83c\udde9\ud83c\uddea', label:'Deutsch' },
+  { code:'fr', flag:'\ud83c\uddeb\ud83c\uddf7', label:'Fran\u00e7ais' },
+  { code:'it', flag:'\ud83c\uddee\ud83c\uddf9', label:'Italiano' },
+];
+
+const T = {
+  en: {
+    badge: 'Learn by playing',
+    heading: 'How <span>LLMs</span> Work',
+    subtitle: 'A collection of interactive games that teach you how Large Language Models generate text. No AI knowledge required.',
+    section: 'Games',
+    playNow: 'Play now',
+    comingSoon: 'Coming soon',
+    footer: 'Learn how Large Language Models work through interactive games.<br>No data science background needed.',
+    games: [
+      { href:'guess-the-token/', icon:'\ud83c\udfaf', title:'Guess the Next Token', tags:'Next-token prediction \u00b7 Probabilities \u00b7 Temperature', desc:'Step into the role of an LLM and predict what comes next, one token at a time. See probability distributions, learn why context matters, and discover how creativity emerges from randomness.', active:true },
+      { href:'the-tokenizer/', icon:'\u2702\ufe0f', title:'The Tokenizer', tags:'Tokenization \u00b7 BPE \u00b7 Subword splitting', desc:'Where do you think the AI splits text into tokens? Click to place your guesses, then see the actual tokenization. From simple words to emojis, code, and numbers \u2014 prepare to be surprised.', active:true },
+      { href:'#', icon:'\ud83d\udccd', title:'Word Space Explorer', tags:'Embeddings \u00b7 Similarity \u00b7 Vector arithmetic', desc:'Drag words onto a 2D map where distance means similarity. Explore vector arithmetic and discover how LLMs represent meaning.', active:false },
+      { href:'#', icon:'\ud83d\udca1', title:'Attention Spotlight', tags:'Attention mechanism \u00b7 Context', desc:'Which words does the model \u201clook at\u201d when predicting the next token? Draw your attention map and compare it to the model\u2019s actual attention weights.', active:false },
+      { href:'#', icon:'\ud83d\udd0d', title:'Spot the Hallucination', tags:'Hallucination \u00b7 Fact-checking \u00b7 Confidence', desc:'Read AI-generated paragraphs and find the made-up facts. Models can be confidently wrong \u2014 learn to spot the tells.', active:false },
+    ]
+  },
+  de: {
+    badge: 'Spielend lernen',
+    heading: 'Wie <span>LLMs</span> funktionieren',
+    subtitle: 'Eine Sammlung interaktiver Spiele, die dir zeigen, wie gro\u00dfe Sprachmodelle Text erzeugen. Kein KI-Wissen n\u00f6tig.',
+    section: 'Spiele',
+    playNow: 'Jetzt spielen',
+    comingSoon: 'Kommt bald',
+    footer: 'Lerne spielerisch, wie gro\u00dfe Sprachmodelle funktionieren.<br>Kein Data-Science-Hintergrund n\u00f6tig.',
+    games: [
+      { href:'guess-the-token/', icon:'\ud83c\udfaf', title:'Errate das n\u00e4chste Token', tags:'Token-Vorhersage \u00b7 Wahrscheinlichkeiten \u00b7 Temperatur', desc:'Schl\u00fcpfe in die Rolle eines LLM und sage vorher, was als N\u00e4chstes kommt. Sieh Wahrscheinlichkeitsverteilungen und entdecke, wie Kreativit\u00e4t aus Zufall entsteht.', active:true },
+      { href:'the-tokenizer/', icon:'\u2702\ufe0f', title:'Der Tokenizer', tags:'Tokenisierung \u00b7 BPE \u00b7 Subwort-Aufteilung', desc:'Wo teilt die KI Text in Token auf? Klicke, um deine Vermutungen zu platzieren, dann sieh die echte Tokenisierung. Von einfachen W\u00f6rtern bis zu Emoji und Code.', active:true },
+      { href:'#', icon:'\ud83d\udccd', title:'Wort-Raum-Entdecker', tags:'Embeddings \u00b7 \u00c4hnlichkeit \u00b7 Vektorarithmetik', desc:'Ziehe W\u00f6rter auf eine 2D-Karte, wo Abstand \u00c4hnlichkeit bedeutet. Entdecke, wie LLMs Bedeutung repr\u00e4sentieren.', active:false },
+      { href:'#', icon:'\ud83d\udca1', title:'Aufmerksamkeits-Spotlight', tags:'Aufmerksamkeitsmechanismus \u00b7 Kontext', desc:'Welche W\u00f6rter \u201ebeachtet\u201c das Modell bei der Vorhersage? Zeichne deine Aufmerksamkeitskarte und vergleiche sie.', active:false },
+      { href:'#', icon:'\ud83d\udd0d', title:'Finde die Halluzination', tags:'Halluzination \u00b7 Faktencheck \u00b7 Konfidenz', desc:'Lies KI-generierte Abs\u00e4tze und finde die erfundenen Fakten. Modelle k\u00f6nnen selbstsicher falsch liegen.', active:false },
+    ]
+  },
+  fr: {
+    badge: 'Apprendre en jouant',
+    heading: 'Comment les <span>LLM</span> fonctionnent',
+    subtitle: 'Une collection de jeux interactifs pour comprendre comment les grands mod\u00e8les de langage g\u00e9n\u00e8rent du texte. Aucune connaissance en IA requise.',
+    section: 'Jeux',
+    playNow: 'Jouer',
+    comingSoon: 'Bient\u00f4t',
+    footer: 'D\u00e9couvrez comment fonctionnent les grands mod\u00e8les de langage en jouant.<br>Aucune formation en data science n\u00e9cessaire.',
+    games: [
+      { href:'guess-the-token/', icon:'\ud83c\udfaf', title:'Devinez le prochain token', tags:'Pr\u00e9diction \u00b7 Probabilit\u00e9s \u00b7 Temp\u00e9rature', desc:'Mettez-vous dans la peau d\u2019un LLM et devinez ce qui vient ensuite. D\u00e9couvrez les distributions de probabilit\u00e9s et comment la cr\u00e9ativit\u00e9 \u00e9merge du hasard.', active:true },
+      { href:'the-tokenizer/', icon:'\u2702\ufe0f', title:'Le Tokeniseur', tags:'Tokenisation \u00b7 BPE \u00b7 Sous-mots', desc:'O\u00f9 pensez-vous que l\u2019IA d\u00e9coupe le texte en tokens\u00a0? Cliquez pour placer vos coupures, puis d\u00e9couvrez la vraie tokenisation.', active:true },
+      { href:'#', icon:'\ud83d\udccd', title:'Explorateur de l\u2019espace des mots', tags:'Embeddings \u00b7 Similarit\u00e9 \u00b7 Arithm\u00e9tique vectorielle', desc:'Placez des mots sur une carte 2D o\u00f9 la distance signifie similarit\u00e9. D\u00e9couvrez comment les LLM repr\u00e9sentent le sens.', active:false },
+      { href:'#', icon:'\ud83d\udca1', title:'Projecteur d\u2019attention', tags:'M\u00e9canisme d\u2019attention \u00b7 Contexte', desc:'Quels mots le mod\u00e8le \u00ab\u00a0regarde\u00a0\u00bb-t-il\u00a0? Dessinez votre carte d\u2019attention et comparez-la.', active:false },
+      { href:'#', icon:'\ud83d\udd0d', title:'Trouvez l\u2019hallucination', tags:'Hallucination \u00b7 V\u00e9rification \u00b7 Confiance', desc:'Lisez des paragraphes g\u00e9n\u00e9r\u00e9s par l\u2019IA et trouvez les faits invent\u00e9s.', active:false },
+    ]
+  },
+  it: {
+    badge: 'Impara giocando',
+    heading: 'Come funzionano gli <span>LLM</span>',
+    subtitle: 'Una raccolta di giochi interattivi per capire come i grandi modelli linguistici generano testo. Nessuna conoscenza di IA richiesta.',
+    section: 'Giochi',
+    playNow: 'Gioca ora',
+    comingSoon: 'In arrivo',
+    footer: 'Scopri come funzionano i grandi modelli linguistici attraverso giochi interattivi.<br>Nessuna formazione in data science necessaria.',
+    games: [
+      { href:'guess-the-token/', icon:'\ud83c\udfaf', title:'Indovina il prossimo token', tags:'Previsione \u00b7 Probabilit\u00e0 \u00b7 Temperatura', desc:'Mettiti nei panni di un LLM e prevedi cosa viene dopo. Scopri le distribuzioni di probabilit\u00e0 e come la creativit\u00e0 emerge dalla casualit\u00e0.', active:true },
+      { href:'the-tokenizer/', icon:'\u2702\ufe0f', title:'Il Tokenizzatore', tags:'Tokenizzazione \u00b7 BPE \u00b7 Sotto-parole', desc:'Dove pensi che l\u2019IA divida il testo in token? Clicca per posizionare le tue divisioni, poi scopri la vera tokenizzazione.', active:true },
+      { href:'#', icon:'\ud83d\udccd', title:'Esploratore dello spazio parole', tags:'Embeddings \u00b7 Similarit\u00e0 \u00b7 Aritmetica vettoriale', desc:'Trascina parole su una mappa 2D dove la distanza significa similarit\u00e0. Scopri come gli LLM rappresentano il significato.', active:false },
+      { href:'#', icon:'\ud83d\udca1', title:'Riflettore di attenzione', tags:'Meccanismo di attenzione \u00b7 Contesto', desc:'Quali parole \u201cguarda\u201d il modello? Disegna la tua mappa di attenzione e confrontala.', active:false },
+      { href:'#', icon:'\ud83d\udd0d', title:'Trova l\u2019allucinazione', tags:'Allucinazione \u00b7 Verifica \u00b7 Confidenza', desc:'Leggi paragrafi generati dall\u2019IA e trova i fatti inventati.', active:false },
+    ]
+  }
+};
+
+let currentLang = localStorage.getItem('llmgames-lang') || 'en';
+
+function setLang(code) {
+  currentLang = code;
+  localStorage.setItem('llmgames-lang', code);
+  document.documentElement.lang = code;
+  render();
+}
+
+function render() {
+  const tr = T[currentLang];
+
+  // Lang bar
+  const bar = document.getElementById('lang-bar');
+  bar.innerHTML = '';
+  LANGS.forEach(l => {
+    const btn = document.createElement('button');
+    btn.className = 'lang-btn' + (l.code === currentLang ? ' active' : '');
+    btn.innerHTML = `<span class="lang-flag">${l.flag}</span>${l.label}`;
+    btn.addEventListener('click', () => setLang(l.code));
+    bar.appendChild(btn);
+  });
+
+  // Header
+  document.getElementById('badge').textContent = tr.badge;
+  document.getElementById('heading').innerHTML = tr.heading;
+  document.getElementById('subtitle').textContent = tr.subtitle;
+  document.getElementById('section-label').textContent = tr.section;
+  document.getElementById('footer').innerHTML = tr.footer;
+
+  // Games
+  const grid = document.getElementById('games-grid');
+  grid.innerHTML = '';
+  tr.games.forEach(g => {
+    const href = g.active ? g.href + '?lang=' + currentLang : '#';
+    const a = document.createElement('a');
+    a.href = href;
+    a.className = 'game-card' + (g.active ? '' : ' coming-soon');
+    a.innerHTML = `
+      <div class="card-top">
+        <div class="game-icon">${g.icon}</div>
+        <div>
+          <h2>${g.title}</h2>
+          <span class="concept-tag">${g.tags}</span>
+        </div>
+      </div>
+      <p>${g.desc}</p>
+      <span class="play-hint">${g.active ? tr.playNow : tr.comingSoon} ${g.active ? '<span class="arrow">&rarr;</span>' : ''}</span>
+    `;
+    grid.appendChild(a);
+  });
+}
+
+render();
+</script>
 </body>
 </html>
