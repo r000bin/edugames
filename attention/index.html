@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Attention Spotlight</title>
+<style>
+  :root {
+    --bg:#0f1729;--bg-card:#1a2340;--bg-hover:#243056;
+    --text:#e2e8f0;--text-dim:#8892a8;--accent:#6366f1;
+    --green:#22c55e;--green-bg:rgba(34,197,94,0.15);
+    --amber:#f59e0b;--amber-bg:rgba(245,158,11,0.15);
+    --red:#ef4444;--red-bg:rgba(239,68,68,0.15);
+    --radius:10px;--max-w:700px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;justify-content:center;padding:16px;}
+  .screen{display:none;flex-direction:column;width:100%;max-width:var(--max-w);}
+  .screen.active{display:flex;}
+  button{font-family:inherit;cursor:pointer;border:none;border-radius:var(--radius);font-size:1rem;transition:all 0.2s;}
+  button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+  .btn-primary{background:var(--accent);color:#fff;padding:14px 32px;font-size:1.1rem;font-weight:600;}
+  .btn-primary:hover{filter:brightness(1.15);transform:translateY(-1px);}
+  .btn-secondary{background:var(--bg-card);color:var(--text);padding:12px 24px;border:1px solid rgba(255,255,255,0.1);font-weight:600;}
+  .btn-secondary:hover{background:var(--bg-hover);}
+  .back-link{color:var(--text-dim);text-decoration:none;font-size:0.9rem;position:fixed;top:16px;left:16px;z-index:10;}
+  .back-link:hover{color:var(--text);}
+
+  .lang-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%;max-width:360px;}
+  .lang-btn{background:var(--bg-card);border:2px solid rgba(99,102,241,0.2);color:var(--text);padding:18px 16px;border-radius:var(--radius);font-size:1.1rem;font-weight:600;display:flex;align-items:center;gap:10px;justify-content:center;font-family:inherit;}
+  .lang-btn:hover{border-color:var(--accent);background:var(--bg-hover);}
+  .lang-flag{font-size:1.5rem;}
+
+  #screen-title{align-items:center;justify-content:center;text-align:center;gap:24px;min-height:80vh;}
+  #screen-title h1{font-size:2.2rem;font-weight:800;line-height:1.2;}
+  #screen-title h1 span{color:var(--accent);}
+  #screen-title .subtitle{color:var(--text-dim);font-size:1.05rem;max-width:500px;line-height:1.6;}
+
+  #screen-round-intro{align-items:center;justify-content:center;text-align:center;gap:20px;min-height:60vh;}
+  #screen-round-intro .round-num{color:var(--accent);font-size:0.9rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;}
+  #screen-round-intro h2{font-size:1.8rem;font-weight:800;}
+  #screen-round-intro .round-desc{color:var(--text-dim);font-size:1.05rem;max-width:500px;line-height:1.6;}
+  .concept-badge{display:inline-block;background:rgba(99,102,241,0.15);color:var(--accent);padding:6px 16px;border-radius:99px;font-size:0.85rem;font-weight:600;}
+
+  .game-header{display:flex;justify-content:space-between;align-items:center;padding:12px 0;margin-bottom:8px;border-bottom:1px solid rgba(255,255,255,0.08);}
+  .game-header .round-label{color:var(--text-dim);font-size:0.9rem;}
+  .game-header .round-title{font-weight:700;font-size:1rem;}
+  .game-header .score{font-size:1.1rem;font-weight:700;color:var(--accent);}
+
+  .instruction{color:var(--text-dim);font-size:0.9rem;margin-bottom:12px;text-align:center;}
+  .focus-prompt{text-align:center;margin-bottom:16px;font-size:1rem;line-height:1.6;}
+  .focus-prompt .focus-word{color:var(--accent);font-weight:700;font-size:1.1rem;border-bottom:2px solid var(--accent);padding-bottom:2px;}
+
+  /* Sentence with tappable words */
+  .sentence-area{
+    background:var(--bg-card);border-radius:var(--radius);padding:24px 20px;
+    margin-bottom:16px;display:flex;flex-wrap:wrap;gap:8px 6px;
+    justify-content:center;align-items:center;
+  }
+  .word-btn{
+    padding:10px 14px;border-radius:8px;font-size:1.1rem;font-weight:600;
+    background:rgba(255,255,255,0.04);border:2px solid rgba(255,255,255,0.08);
+    color:var(--text);cursor:pointer;transition:all 0.15s;
+    -webkit-tap-highlight-color:transparent;min-width:44px;text-align:center;
+    font-family:inherit;
+  }
+  .word-btn:hover{border-color:rgba(99,102,241,0.4);background:rgba(99,102,241,0.08);}
+  .word-btn.selected{border-color:var(--accent);background:rgba(99,102,241,0.2);color:#fff;}
+  .word-btn.focus{border-color:var(--accent);background:var(--accent);color:#fff;cursor:default;box-shadow:0 0 16px rgba(99,102,241,0.4);}
+  .word-btn.revealed{cursor:default;transition:all 0.4s;}
+  .word-btn .attn-bar{display:none;height:3px;border-radius:2px;margin-top:6px;background:var(--accent);transition:width 0.6s ease-out;}
+  .word-btn.revealed .attn-bar{display:block;}
+
+  /* Result markers on words */
+  .word-btn.hit{border-color:var(--green);background:var(--green-bg);}
+  .word-btn.miss{border-color:var(--amber);background:var(--amber-bg);}
+  .word-btn.wrong{border-color:var(--red);background:var(--red-bg);}
+
+  .btn-row{display:flex;justify-content:center;gap:12px;padding:8px 0 12px;flex-wrap:wrap;}
+
+  .explanation-area{
+    background:rgba(99,102,241,0.08);border-left:3px solid var(--accent);
+    border-radius:0 var(--radius) var(--radius) 0;
+    padding:16px 20px;margin-bottom:12px;font-size:0.95rem;line-height:1.6;
+    opacity:0;transform:translateY(8px);transition:all 0.4s;
+  }
+  .explanation-area.visible{opacity:1;transform:translateY(0);}
+  .explanation-area .label{font-weight:700;color:var(--accent);margin-bottom:4px;font-size:0.85rem;text-transform:uppercase;letter-spacing:0.05em;}
+
+  .score-pill{display:inline-block;padding:6px 16px;border-radius:99px;font-weight:700;font-size:0.9rem;}
+  .score-pill.good{background:var(--green-bg);color:var(--green);}
+  .score-pill.ok{background:var(--amber-bg);color:var(--amber);}
+  .score-pill.bad{background:var(--red-bg);color:var(--red);}
+
+  .progress-area{margin-top:auto;padding-top:12px;}
+  .progress-bar-bg{height:6px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden;}
+  .progress-bar-fill{height:100%;background:var(--accent);border-radius:3px;transition:width 0.4s ease-out;}
+  .progress-label{text-align:center;font-size:0.8rem;color:var(--text-dim);margin-top:6px;}
+
+  #screen-round-summary,#screen-complete{align-items:center;justify-content:center;text-align:center;gap:20px;min-height:60vh;}
+  .summary-score{font-size:2.5rem;font-weight:800;color:var(--accent);}
+  .summary-breakdown{color:var(--text-dim);font-size:0.95rem;}
+  .takeaway-box{background:var(--bg-card);border:1px solid rgba(99,102,241,0.2);border-radius:var(--radius);padding:20px 24px;max-width:500px;text-align:left;line-height:1.6;}
+  .takeaway-box .takeaway-label{font-weight:700;color:var(--accent);font-size:0.85rem;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;}
+  .final-score{font-size:3rem;font-weight:800;color:var(--accent);}
+  .final-title{font-size:1.3rem;font-weight:700;padding:8px 24px;border-radius:99px;background:rgba(99,102,241,0.15);color:var(--accent);}
+  .concepts-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:500px;width:100%;text-align:left;}
+  .concept-card{background:var(--bg-card);border-radius:var(--radius);padding:12px 16px;}
+  .concept-card .cc-title{font-weight:700;font-size:0.85rem;margin-bottom:4px;}
+  .concept-card .cc-desc{font-size:0.8rem;color:var(--text-dim);line-height:1.4;}
+
+  .legend{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;font-size:0.8rem;color:var(--text-dim);margin-bottom:8px;}
+  .legend span{display:flex;align-items:center;gap:4px;}
+  .legend .dot{width:10px;height:10px;border-radius:3px;}
+
+  @media(max-width:500px){
+    #screen-title h1{font-size:1.7rem;}
+    .word-btn{font-size:0.95rem;padding:8px 10px;min-width:40px;}
+    .sentence-area{padding:16px 12px;gap:6px 4px;}
+    .concepts-grid{grid-template-columns:1fr;}
+    .lang-grid{grid-template-columns:1fr;max-width:240px;}
+  }
+</style>
+</head>
+<body>
+<a href="../" class="back-link">&larr; All Games</a>
+
+<div id="screen-title" class="screen active">
+  <h1 id="title-heading"></h1>
+  <p class="subtitle" id="title-subtitle"></p>
+  <div class="lang-grid" id="lang-grid"></div>
+</div>
+
+<div id="screen-round-intro" class="screen">
+  <span class="round-num" id="intro-round-num"></span>
+  <h2 id="intro-title"></h2>
+  <p class="round-desc" id="intro-desc"></p>
+  <span class="concept-badge" id="intro-concept"></span>
+  <button class="btn-primary" id="btn-begin" onclick="startRound()"></button>
+</div>
+
+<div id="screen-play" class="screen">
+  <div class="game-header">
+    <div><div class="round-label" id="play-round-label"></div><div class="round-title" id="play-round-title"></div></div>
+    <span class="score" id="play-score">0</span>
+  </div>
+  <div class="focus-prompt" id="focus-prompt"></div>
+  <div class="instruction" id="play-instruction"></div>
+  <div class="sentence-area" id="sentence-area"></div>
+  <div class="legend" id="legend" style="display:none">
+    <span><span class="dot" style="background:var(--green)"></span> You picked &amp; high attention</span>
+    <span><span class="dot" style="background:var(--amber)"></span> High attention (missed)</span>
+    <span><span class="dot" style="background:var(--red)"></span> You picked &amp; low attention</span>
+  </div>
+  <div class="btn-row" id="submit-row">
+    <button class="btn-primary" id="btn-submit" onclick="submitSelection()"></button>
+  </div>
+  <div class="btn-row" id="score-row" style="display:none"><span class="score-pill" id="round-points"></span></div>
+  <div class="explanation-area" id="explanation-area">
+    <div class="label" id="explanation-label"></div>
+    <p id="explanation-text"></p>
+  </div>
+  <div class="btn-row" id="next-row" style="display:none">
+    <button class="btn-primary" id="btn-next" onclick="nextChallenge()"></button>
+  </div>
+  <div class="progress-area">
+    <div class="progress-bar-bg"><div class="progress-bar-fill" id="progress-fill"></div></div>
+    <div class="progress-label" id="progress-label"></div>
+  </div>
+</div>
+
+<div id="screen-round-summary" class="screen">
+  <span class="round-num" id="summary-round-num"></span>
+  <div class="summary-score" id="summary-score"></div>
+  <div class="summary-breakdown" id="summary-breakdown"></div>
+  <div class="takeaway-box"><div class="takeaway-label" id="summary-takeaway-label"></div><p id="summary-takeaway"></p></div>
+  <button class="btn-primary" id="btn-next-round" onclick="nextRound()"></button>
+</div>
+
+<div id="screen-complete" class="screen">
+  <h2 id="complete-heading"></h2>
+  <div class="final-score" id="final-score"></div>
+  <div class="final-title" id="final-title"></div>
+  <p style="color:var(--text-dim);max-width:500px;line-height:1.6" id="final-desc"></p>
+  <div class="concepts-grid" id="concepts-grid"></div>
+  <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
+    <button class="btn-primary" id="btn-play-again" onclick="location.reload()"></button>
+    <button class="btn-secondary" onclick="window.location.href='../'">&#8592; <span id="btn-all-games"></span></button>
+  </div>
+</div>
+
+<script>
+const UI={
+en:{
+  heading:'Attention<br><span>Spotlight</span>',
+  subtitle:'When an LLM reads a sentence, each word "looks at" other words to understand context. Can you guess which words the model pays attention to?',
+  begin:'Begin',continue_:'Continue',nextRound:'Next Round',seeResults:'See Results',
+  submit:'Check',howItWorks:'Why the model looks here',keyTakeaway:'Key Takeaway',
+  gameComplete:'Game Complete!',playAgain:'Play Again',allGames:'All Games',
+  focusPrompt:w=>`Which words does <span class="focus-word">${w}</span> pay attention to?`,
+  instruction:'Tap the words you think the highlighted word focuses on most',
+  roundN:(n,t)=>`Round ${n} of ${t}`,roundComplete:n=>`Round ${n} Complete`,
+  stepN:(n,t)=>`Step ${n} of ${t}`,breakdown:(c,t,s)=>`${c}/${t} good guesses \u00b7 Total: ${s} points`,
+  titles:['Attention Novice','Focus Finder','Pattern Reader','Attention Analyst','Transformer Brain'],
+  titleDescs:[
+    "Attention is tricky! But now you know: every word 'looks at' other words to build meaning, and the patterns aren't always obvious.",
+    "You're starting to see how words connect. Pronouns look back at nouns, verbs look at their subjects \u2014 attention follows grammar.",
+    "Solid intuition! You understand that attention is about relevance \u2014 each word focuses on whatever helps predict what comes next.",
+    "Impressive! You grasp how attention resolves ambiguity and tracks long-range dependencies across sentences.",
+    "You think like a transformer! You've internalized how self-attention builds contextual understanding of every word."
+  ],
+  concepts:[
+    ['Self-Attention','Every word computes how much to \u201clook at\u201d every other word. This is the core of the transformer architecture.'],
+    ['Pronouns \u2192 Nouns','Pronouns strongly attend to the nouns they refer to. \u201cShe\u201d looks back at the person\u2019s name.'],
+    ['Verbs \u2192 Subjects','Verbs pay attention to their subjects and objects to understand who does what to whom.'],
+    ['Long-Range Dependencies','Attention can connect words far apart. A word at position 50 can attend to position 3.'],
+    ['Multi-Head Attention','The model has many \u201cattention heads\u201d, each looking at different relationships simultaneously.'],
+    ['Attention \u2260 Importance','High attention doesn\u2019t mean a word is \u201cimportant\u201d \u2014 it means it\u2019s useful for predicting the next token.'],
+  ]
+},
+de:{
+  heading:'Aufmerksamkeits-<br><span>Spotlight</span>',
+  subtitle:'Wenn ein LLM einen Satz liest, \u201eschaut\u201c jedes Wort auf andere W\u00f6rter, um den Kontext zu verstehen. Kannst du erraten, welche W\u00f6rter das Modell beachtet?',
+  begin:'Los geht\u2019s',continue_:'Weiter',nextRound:'N\u00e4chste Runde',seeResults:'Ergebnis',
+  submit:'Pr\u00fcfen',howItWorks:'Warum das Modell hierhin schaut',keyTakeaway:'Wichtigste Erkenntnis',
+  gameComplete:'Spiel beendet!',playAgain:'Nochmal',allGames:'Alle Spiele',
+  focusPrompt:w=>`Welche W\u00f6rter beachtet <span class="focus-word">${w}</span> am meisten?`,
+  instruction:'Tippe die W\u00f6rter an, auf die das hervorgehobene Wort am meisten achtet',
+  roundN:(n,t)=>`Runde ${n} von ${t}`,roundComplete:n=>`Runde ${n} abgeschlossen`,
+  stepN:(n,t)=>`Schritt ${n} von ${t}`,breakdown:(c,t,s)=>`${c}/${t} gute Tipps \u00b7 Gesamt: ${s} Punkte`,
+  titles:['Aufmerksamkeits-Neuling','Fokus-Finder','Muster-Leser','Aufmerksamkeits-Analyst','Transformer-Gehirn'],
+  titleDescs:[
+    "Aufmerksamkeit ist knifflig! Aber jetzt wei\u00dft du: Jedes Wort 'schaut' auf andere W\u00f6rter, um Bedeutung aufzubauen.",
+    "Du beginnst zu sehen, wie W\u00f6rter sich verbinden. Pronomen schauen zur\u00fcck auf Nomen, Verben auf ihre Subjekte.",
+    "Solide Intuition! Du verstehst, dass Aufmerksamkeit Relevanz bedeutet.",
+    "Beeindruckend! Du begreifst, wie Aufmerksamkeit Mehrdeutigkeit aufl\u00f6st.",
+    "Du denkst wie ein Transformer! Du hast verinnerlicht, wie Self-Attention funktioniert."
+  ],
+  concepts:[
+    ['Self-Attention','Jedes Wort berechnet, wie viel es jedes andere Wort \u201ebeachten\u201c soll. Das ist der Kern der Transformer-Architektur.'],
+    ['Pronomen \u2192 Nomen','Pronomen achten stark auf die Nomen, auf die sie sich beziehen.'],
+    ['Verben \u2192 Subjekte','Verben achten auf ihre Subjekte und Objekte.'],
+    ['Fernabh\u00e4ngigkeiten','Aufmerksamkeit kann weit entfernte W\u00f6rter verbinden.'],
+    ['Multi-Head Attention','Das Modell hat viele \u201eAufmerksamkeitsk\u00f6pfe\u201c, die verschiedene Beziehungen gleichzeitig betrachten.'],
+    ['Aufmerksamkeit \u2260 Wichtigkeit','Hohe Aufmerksamkeit bedeutet nicht, dass ein Wort \u201ewichtig\u201c ist \u2014 es ist n\u00fctzlich f\u00fcr die Vorhersage.'],
+  ]
+},
+fr:{
+  heading:'Projecteur<br><span>d\u2019attention</span>',
+  subtitle:'Quand un LLM lit une phrase, chaque mot \u00ab\u00a0regarde\u00a0\u00bb les autres mots pour comprendre le contexte. Pouvez-vous deviner quels mots le mod\u00e8le observe\u00a0?',
+  begin:'C\u2019est parti',continue_:'Continuer',nextRound:'Manche suivante',seeResults:'R\u00e9sultats',
+  submit:'V\u00e9rifier',howItWorks:'Pourquoi le mod\u00e8le regarde ici',keyTakeaway:'Point cl\u00e9',
+  gameComplete:'Partie termin\u00e9e\u00a0!',playAgain:'Rejouer',allGames:'Tous les jeux',
+  focusPrompt:w=>`Quels mots <span class="focus-word">${w}</span> observe-t-il le plus\u00a0?`,
+  instruction:'Tapez les mots que le mot mis en \u00e9vidence observe le plus',
+  roundN:(n,t)=>`Manche ${n} sur ${t}`,roundComplete:n=>`Manche ${n} termin\u00e9e`,
+  stepN:(n,t)=>`\u00c9tape ${n} sur ${t}`,breakdown:(c,t,s)=>`${c}/${t} bons choix \u00b7 Total\u00a0: ${s} points`,
+  titles:['Novice de l\u2019attention','D\u00e9couvreur de focus','Lecteur de motifs','Analyste d\u2019attention','Cerveau transformer'],
+  titleDescs:[
+    "L\u2019attention est subtile\u00a0! Mais maintenant vous savez : chaque mot \u00ab\u00a0regarde\u00a0\u00bb les autres pour construire le sens.",
+    "Vous commencez \u00e0 voir comment les mots se connectent.",
+    "Bonne intuition\u00a0! Vous comprenez que l\u2019attention est une question de pertinence.",
+    "Impressionnant\u00a0! Vous saisissez comment l\u2019attention r\u00e9sout les ambigu\u00eft\u00e9s.",
+    "Vous pensez comme un transformer\u00a0! Vous avez int\u00e9rioris\u00e9 le fonctionnement de la self-attention."
+  ],
+  concepts:[
+    ['Self-Attention','Chaque mot calcule combien il doit \u00ab\u00a0regarder\u00a0\u00bb chaque autre mot.'],
+    ['Pronoms \u2192 Noms','Les pronoms observent fortement les noms auxquels ils se r\u00e9f\u00e8rent.'],
+    ['Verbes \u2192 Sujets','Les verbes portent attention \u00e0 leurs sujets et objets.'],
+    ['D\u00e9pendances longue distance','L\u2019attention peut connecter des mots tr\u00e8s \u00e9loign\u00e9s.'],
+    ['Attention multi-t\u00eate','Le mod\u00e8le a plusieurs \u00ab\u00a0t\u00eates d\u2019attention\u00a0\u00bb qui examinent diff\u00e9rentes relations.'],
+    ['Attention \u2260 Importance','Haute attention ne signifie pas qu\u2019un mot est \u00ab\u00a0important\u00a0\u00bb.'],
+  ]
+},
+it:{
+  heading:'Riflettore<br><span>di attenzione</span>',
+  subtitle:'Quando un LLM legge una frase, ogni parola \u201cguarda\u201d le altre parole per capire il contesto. Riesci a indovinare quali parole il modello osserva?',
+  begin:'Via!',continue_:'Continua',nextRound:'Prossimo round',seeResults:'Risultati',
+  submit:'Verifica',howItWorks:'Perch\u00e9 il modello guarda qui',keyTakeaway:'Concetto chiave',
+  gameComplete:'Partita completata!',playAgain:'Gioca ancora',allGames:'Tutti i giochi',
+  focusPrompt:w=>`Quali parole osserva maggiormente <span class="focus-word">${w}</span>?`,
+  instruction:'Tocca le parole che pensi il modello osservi di pi\u00f9',
+  roundN:(n,t)=>`Round ${n} di ${t}`,roundComplete:n=>`Round ${n} completato`,
+  stepN:(n,t)=>`Passo ${n} di ${t}`,breakdown:(c,t,s)=>`${c}/${t} buone scelte \u00b7 Totale: ${s} punti`,
+  titles:['Novizio dell\u2019attenzione','Scopritore di focus','Lettore di pattern','Analista di attenzione','Cervello transformer'],
+  titleDescs:[
+    "L\u2019attenzione \u00e8 sottile! Ma ora sai: ogni parola \u2018guarda\u2019 le altre per costruire il significato.",
+    "Stai iniziando a vedere come le parole si connettono.",
+    "Buona intuizione! Capisci che l\u2019attenzione riguarda la rilevanza.",
+    "Impressionante! Comprendi come l\u2019attenzione risolve le ambiguit\u00e0.",
+    "Pensi come un transformer! Hai interiorizzato come funziona la self-attention."
+  ],
+  concepts:[
+    ['Self-Attention','Ogni parola calcola quanto deve \u201cguardare\u201d ogni altra parola.'],
+    ['Pronomi \u2192 Nomi','I pronomi osservano fortemente i nomi a cui si riferiscono.'],
+    ['Verbi \u2192 Soggetti','I verbi prestano attenzione ai loro soggetti e oggetti.'],
+    ['Dipendenze a lunga distanza','L\u2019attenzione pu\u00f2 collegare parole molto distanti.'],
+    ['Attenzione multi-testa','Il modello ha molte \u201cteste di attenzione\u201d che esaminano relazioni diverse.'],
+    ['Attenzione \u2260 Importanza','Alta attenzione non significa che una parola \u00e8 \u201cimportante\u201d.'],
+  ]
+}};
+
+// Each challenge: words[], focusIndex, attention weights (0-1 per word), top3 indices, explanation
+const G=
+{en:{rounds:[
+{title:"Who Does What?",
+description:"Pronouns need to know who they refer to. When the model sees \u201cshe\u201d or \u201cit\u201d, it looks back to find the noun. Can you predict where attention flows?",
+concept:"Pronoun resolution",
+takeaway:"Pronouns are attention magnets \u2014 they almost always look back at the noun they refer to. This is how the model knows that \u2018she\u2019 means \u2018Alice\u2019 and not \u2018the cake\u2019. Attention is the mechanism that resolves references.",
+challenges:[
+{words:["Alice","baked","a","cake","and","she","ate","it"],focusIdx:5,
+attn:[.45,.08,.02,.12,.02,.0,.05,.10],top:[0,3,7],
+explanation:"\u201cShe\u201d strongly attends to \u201cAlice\u201d (0.45) \u2014 that\u2019s who \u201cshe\u201d refers to. It also glances at \u201ccake\u201d and \u201cit\u201d to understand the full action. The model is essentially resolving the pronoun reference."},
+{words:["The","dog","chased","the","cat","because","it","was","fast"],focusIdx:6,
+attn:[.05,.15,.10,.04,.30,.03,.0,.05,.12],top:[4,1,2],
+explanation:"\u201cIt\u201d looks most at \u201ccat\u201d (0.30) and \u201cdog\u201d (0.15). Which one is \u201cit\u201d? The word \u201cfast\u201d and \u201cchased\u201d help decide \u2014 the chaser is usually fast. Attention flows to both candidates while the model weighs the evidence."},
+{words:["John","told","Mary","that","he","would","help","her"],focusIdx:7,
+attn:[.08,.05,.50,.03,.10,.03,.08,.0],top:[2,4,0],
+explanation:"\u201cHer\u201d attends strongly to \u201cMary\u201d (0.50) \u2014 the feminine pronoun resolves to the female name. It also checks \u201che\u201d and \u201cJohn\u201d to understand the full relationship. Gender matching is a key cue."}
+]},
+{title:"Action Connections",
+description:"Verbs need to know their subjects and objects. When the model predicts what a verb means, it looks at who is doing what to whom.",
+concept:"Subject-verb-object attention",
+takeaway:"Verbs are hubs of attention \u2014 they connect to both their subjects and objects. \u2018Ate\u2019 looks at who ate and what was eaten. This subject-verb-object structure is one of the strongest patterns attention learns.",
+challenges:[
+{words:["The","chef","carefully","prepared","the","exotic","meal"],focusIdx:3,
+attn:[.08,.35,.15,.0,.06,.08,.20],top:[1,6,2],
+explanation:"\u201cPrepared\u201d looks at \u201cchef\u201d (0.35, who prepared?) and \u201cmeal\u201d (0.20, what was prepared?). It also attends to \u201ccarefully\u201d (0.15), the adverb modifying it. Verbs are attention hubs connecting subjects, objects, and modifiers."},
+{words:["Scientists","recently","discovered","a","new","species","in","the","Amazon"],focusIdx:2,
+attn:[.40,.12,.0,.04,.06,.18,.05,.03,.08],top:[0,5,1],
+explanation:"\u201cDiscovered\u201d attends strongly to \u201cScientists\u201d (0.40, who?) and \u201cspecies\u201d (0.18, what?). \u201cRecently\u201d (0.12) gets attention as a temporal modifier. The verb builds the event structure by connecting to its arguments."},
+{words:["She","quickly","closed","the","window","before","the","rain","started"],focusIdx:2,
+attn:[.30,.12,.0,.06,.22,.05,.03,.10,.08],top:[0,4,1],
+explanation:"\u201cClosed\u201d focuses on \u201cShe\u201d (0.30, who closed?) and \u201cwindow\u201d (0.22, what was closed?). The adverb \u201cquickly\u201d and the reason \u201crain\u201d also get attention. Verbs gather context from all their arguments."}
+]},
+{title:"Meaning from Context",
+description:"The same word can mean different things. \u2018Bank\u2019 could be a riverbank or a financial institution. Attention looks at surrounding words to resolve the ambiguity.",
+concept:"Disambiguation through context",
+takeaway:"When a word is ambiguous, attention reaches out to context words that clarify the meaning. \u2018Bank\u2019 attends to \u2018river\u2019 or \u2018money\u2019 to decide which sense to use. This context-driven disambiguation is why LLMs handle polysemy so well.",
+challenges:[
+{words:["I","sat","on","the","bank","of","the","river","and","fished"],focusIdx:4,
+attn:[.05,.08,.06,.04,.0,.05,.04,.35,.04,.20],top:[7,9,1],
+explanation:"\u201cBank\u201d looks most at \u201criver\u201d (0.35) and \u201cfished\u201d (0.20) \u2014 these context words tell it we mean a riverbank, not a financial bank. The model disambiguates through attention to semantically relevant neighbors."},
+{words:["The","bank","approved","my","loan","application","today"],focusIdx:1,
+attn:[.06,.0,.25,.05,.30,.15,.05],top:[4,2,5],
+explanation:"\u201cBank\u201d attends to \u201cloan\u201d (0.30) and \u201capproved\u201d (0.25) \u2014 financial context words. \u201cApplication\u201d (0.15) reinforces it. Different sentence, same word, completely different attention pattern. This is disambiguation in action."},
+{words:["The","bright","star","performed","on","the","big","stage"],focusIdx:2,
+attn:[.05,.15,.0,.30,.04,.04,.08,.20],top:[3,7,1],
+explanation:"\u201cStar\u201d here is ambiguous (celestial or celebrity?). It attends to \u201cperformed\u201d (0.30) and \u201cstage\u201d (0.20) \u2014 clearly celebrity context. \u201cBright\u201d (0.15) could go either way, but the performance context wins."}
+]},
+{title:"Long-Range Connections",
+description:"Attention can reach across the entire sentence. A word at the end might strongly attend to a word at the very beginning. This is the transformer\u2019s superpower.",
+concept:"Long-range dependencies",
+takeaway:"Unlike older models that forgot distant words, transformers can attend to ANY position equally. This is why they handle long texts so well \u2014 a closing word can directly \u201csee\u201d the opening word, no matter how far apart they are.",
+challenges:[
+{words:["The","musician","who","won","the","Grammy","last","year","finally","released","her","album"],focusIdx:10,
+attn:[.04,.38,.03,.06,.03,.08,.02,.03,.04,.05,.0,.12],top:[1,11,5],
+explanation:"\u201cHer\u201d reaches all the way back to \u201cmusician\u201d (0.38) \u2014 9 words away! It skips over the relative clause to find its referent. It also checks \u201calbum\u201d (0.12). Long-range attention is the transformer\u2019s superpower."},
+{words:["Although","the","experiment","failed","the","team","remained","optimistic","about","future","results"],focusIdx:7,
+attn:[.15,.04,.12,.18,.03,.20,.06,.0,.05,.08,.04],top:[5,3,0],
+explanation:"\u201cOptimistic\u201d attends to \u201cteam\u201d (0.20, who is optimistic?) and \u201cfailed\u201d (0.18, despite what?). It also reaches back to \u201cAlthough\u201d (0.15) which sets up the contrast. The model tracks the adversative structure across the full sentence."},
+{words:["Every","student","who","studied","hard","for","the","final","exam","passed","with","high","marks"],focusIdx:9,
+attn:[.08,.30,.04,.15,.10,.03,.03,.05,.08,.0,.03,.04,.05],top:[1,3,4],
+explanation:"\u201cPassed\u201d looks back at \u201cstudent\u201d (0.30) \u2014 8 words away \u2014 to find who passed. It also attends to \u201cstudied\u201d (0.15) and \u201chard\u201d (0.10), connecting the cause to the result. The relative clause doesn\u2019t confuse the attention."}
+]},
+{title:"The Full Picture",
+description:"Now let\u2019s put it all together. In real text, attention handles pronouns, verbs, ambiguity, and long-range connections simultaneously. Every word is both looking and being looked at.",
+concept:"Multi-head attention at work",
+takeaway:"In a real transformer, 12-96 attention heads operate simultaneously. Some track grammar, some track meaning, some track position. Together they build a rich, contextual understanding of every word. This multi-headed attention is what makes LLMs so powerful.",
+challenges:[
+{words:["When","the","CEO","announced","layoffs","employees","feared","they","would","lose","their","jobs"],focusIdx:7,
+attn:[.04,.03,.10,.08,.12,.32,.04,.0,.05,.06,.04,.08],top:[5,4,2],
+explanation:"\u201cThey\u201d attends strongly to \u201cemployees\u201d (0.32) \u2014 resolving the pronoun. It also checks \u201clayoffs\u201d (0.12) and \u201cCEO\u201d (0.10) for context. Multiple attention patterns work together: one head resolves the pronoun, another tracks the cause-effect."},
+{words:["The","old","man","who","lived","by","the","sea","told","stories","about","the","ships"],focusIdx:8,
+attn:[.05,.06,.25,.03,.08,.03,.03,.12,.0,.15,.05,.04,.10],top:[2,9,7],
+explanation:"\u201cTold\u201d attends to \u201cman\u201d (0.25, who told?), \u201cstories\u201d (0.15, told what?), and \u201csea\u201d (0.12, the setting). It reaches past the relative clause \u201cwho lived by the sea\u201d to connect subject to verb. Multiple dependency types resolved at once."},
+{words:["Despite","the","heavy","rain","the","concert","was","amazing","and","everyone","danced"],focusIdx:10,
+attn:[.12,.03,.05,.10,.04,.15,.04,.18,.06,.15,.0],top:[7,5,9],
+explanation:"\u201cDanced\u201d attends to \u201camazing\u201d (0.18, why they danced), \u201cconcert\u201d (0.15, where), and \u201ceveryone\u201d (0.15, who). It also checks \u201cDespite\u201d (0.12) and \u201crain\u201d (0.10) for the adversative context. All the pieces connect."}
+]}
+]},
+de:{rounds:[
+{title:"Wer macht was?",
+description:"Pronomen m\u00fcssen wissen, auf wen sie sich beziehen. Wenn das Modell \u201esie\u201c oder \u201ees\u201c sieht, schaut es zur\u00fcck, um das Nomen zu finden.",
+concept:"Pronomenaufl\u00f6sung",
+takeaway:"Pronomen sind Aufmerksamkeitsmagneten \u2014 sie schauen fast immer zum Nomen zur\u00fcck, auf das sie sich beziehen. So wei\u00df das Modell, dass \u201esie\u201c \u201eAnna\u201c meint.",
+challenges:[
+{words:["Anna","backte","einen","Kuchen","und","sie","a\u00df","ihn"],focusIdx:5,
+attn:[.45,.08,.03,.12,.02,.0,.06,.10],top:[0,3,7],
+explanation:"\u201eSie\u201c schaut stark auf \u201eAnna\u201c (0.45) \u2014 das ist, worauf sich \u201esie\u201c bezieht. Auch \u201eKuchen\u201c und \u201eihn\u201c erhalten Aufmerksamkeit."},
+{words:["Der","Hund","jagte","die","Katze","weil","er","schnell","war"],focusIdx:6,
+attn:[.04,.18,.12,.04,.28,.03,.0,.10,.06],top:[4,1,2],
+explanation:"\u201eEr\u201c schaut am meisten auf \u201eKatze\u201c (0.28) und \u201eHund\u201c (0.18). Welcher ist \u201eer\u201c? \u201eSchnell\u201c und \u201ejagte\u201c helfen bei der Entscheidung."}
+]},
+{title:"Handlungsverbindungen",
+description:"Verben m\u00fcssen ihre Subjekte und Objekte kennen. Das Modell schaut, wer was mit wem macht.",
+concept:"Subjekt-Verb-Objekt-Aufmerksamkeit",
+takeaway:"Verben sind Knotenpunkte der Aufmerksamkeit \u2014 sie verbinden sich mit Subjekten und Objekten.",
+challenges:[
+{words:["Der","Koch","bereitete","sorgf\u00e4ltig","das","exotische","Mahl","zu"],focusIdx:2,
+attn:[.06,.35,.0,.15,.05,.08,.22,.05],top:[1,6,3],
+explanation:"\u201eBereitete\u201c schaut auf \u201eKoch\u201c (0.35, wer?) und \u201eMahl\u201c (0.22, was?). Auch \u201esorgf\u00e4ltig\u201c (0.15) erh\u00e4lt Aufmerksamkeit als Adverb."},
+{words:["Sie","schloss","schnell","das","Fenster","vor","dem","Regen"],focusIdx:1,
+attn:[.30,.0,.12,.05,.25,.05,.04,.12],top:[0,4,2],
+explanation:"\u201eSchloss\u201c fokussiert auf \u201eSie\u201c (0.30, wer?) und \u201eFenster\u201c (0.25, was?). \u201eSchnell\u201c und \u201eRegen\u201c geben zus\u00e4tzlichen Kontext."}
+]},
+{title:"Bedeutung aus dem Kontext",
+description:"Dasselbe Wort kann verschiedene Dinge bedeuten. Die Aufmerksamkeit schaut auf umgebende W\u00f6rter, um die Mehrdeutigkeit aufzul\u00f6sen.",
+concept:"Kontextbasierte Disambiguierung",
+takeaway:"Bei mehrdeutigen W\u00f6rtern greift die Aufmerksamkeit nach Kontextw\u00f6rtern, die die Bedeutung kl\u00e4ren.",
+challenges:[
+{words:["Ich","sa\u00df","auf","der","Bank","am","Fluss","und","angelte"],focusIdx:4,
+attn:[.05,.08,.06,.04,.0,.05,.35,.04,.22],top:[6,8,1],
+explanation:"\u201eBank\u201c schaut auf \u201eFluss\u201c (0.35) und \u201eangelte\u201c (0.22) \u2014 Kontextw\u00f6rter f\u00fcr Sitzbank/Flussufer, nicht Geldinstitut."},
+{words:["Die","Bank","genehmigte","meinen","Kredit","antrag"],focusIdx:1,
+attn:[.06,.0,.25,.05,.32,.18],top:[4,2,5],
+explanation:"\u201eBank\u201c beachtet \u201eKredit\u201c (0.32) und \u201egenehmigte\u201c (0.25) \u2014 finanzieller Kontext. Gleiches Wort, v\u00f6llig anderes Aufmerksamkeitsmuster."}
+]},
+{title:"Fernverbindungen",
+description:"Aufmerksamkeit kann den gesamten Satz \u00fcberspannen. Ein Wort am Ende kann stark auf ein Wort am Anfang achten.",
+concept:"Fernabh\u00e4ngigkeiten",
+takeaway:"Im Gegensatz zu \u00e4lteren Modellen k\u00f6nnen Transformer auf JEDE Position gleich gut achten, egal wie weit entfernt.",
+challenges:[
+{words:["Der","Musiker","der","den","Grammy","gewann","ver\u00f6ffentlichte","endlich","sein","Album"],focusIdx:8,
+attn:[.04,.40,.03,.04,.08,.06,.06,.04,.0,.15],top:[1,9,4],
+explanation:"\u201eSein\u201c reicht zur\u00fcck zu \u201eMusiker\u201c (0.40) \u2014 7 W\u00f6rter entfernt! Es \u00fcberspringt den Relativsatz. Fernaufmerksamkeit ist die Superkraft des Transformers."},
+{words:["Obwohl","das","Experiment","scheiterte","blieb","das","Team","optimistisch"],focusIdx:7,
+attn:[.18,.03,.12,.20,.06,.04,.22,.0],top:[6,3,0],
+explanation:"\u201eOptimistisch\u201c achtet auf \u201eTeam\u201c (0.22, wer?), \u201escheiterte\u201c (0.20, trotz was?) und \u201eObwohl\u201c (0.18, der Kontrast)."}
+]},
+{title:"Das Gesamtbild",
+description:"Jetzt alles zusammen: Aufmerksamkeit behandelt Pronomen, Verben, Mehrdeutigkeit und Fernverbindungen gleichzeitig.",
+concept:"Multi-Head-Attention in Aktion",
+takeaway:"In einem echten Transformer arbeiten 12-96 Aufmerksamkeitsk\u00f6pfe gleichzeitig. Zusammen bauen sie ein reiches, kontextuelles Verst\u00e4ndnis jedes Wortes auf.",
+challenges:[
+{words:["Als","der","Chef","K\u00fcndigungen","ank\u00fcndigte","f\u00fcrchteten","die","Mitarbeiter","um","ihre","Jobs"],focusIdx:9,
+attn:[.04,.03,.10,.12,.08,.05,.04,.32,.04,.0,.10],top:[7,3,2],
+explanation:"\u201eIhre\u201c achtet stark auf \u201eMitarbeiter\u201c (0.32) und \u201eK\u00fcndigungen\u201c (0.12). Mehrere Aufmerksamkeitsmuster arbeiten zusammen."},
+{words:["Der","alte","Mann","am","Meer","erz\u00e4hlte","Geschichten","\u00fcber","die","Schiffe"],focusIdx:5,
+attn:[.05,.06,.28,.04,.14,.0,.18,.05,.04,.12],top:[2,6,4],
+explanation:"\u201eErz\u00e4hlte\u201c beachtet \u201eMann\u201c (0.28, wer?), \u201eGeschichten\u201c (0.18, was?) und \u201eMeer\u201c (0.14, wo?). Mehrere Abh\u00e4ngigkeiten gleichzeitig aufgel\u00f6st."}
+]}
+]},
+fr:{rounds:[
+{title:"Qui fait quoi\u00a0?",
+description:"Les pronoms doivent savoir \u00e0 qui ils se r\u00e9f\u00e8rent. Le mod\u00e8le regarde en arri\u00e8re pour trouver le nom.",
+concept:"R\u00e9solution des pronoms",
+takeaway:"Les pronoms sont des aimants \u00e0 attention \u2014 ils regardent presque toujours le nom auquel ils se r\u00e9f\u00e8rent.",
+challenges:[
+{words:["Alice","a","pr\u00e9par\u00e9","un","g\u00e2teau","et","elle","l\u2019a","mang\u00e9"],focusIdx:6,
+attn:[.45,.05,.08,.03,.12,.02,.0,.06,.10],top:[0,4,8],
+explanation:"\u201eElle\u201c observe fortement \u201eAlice\u201c (0.45). Le pronom se r\u00e9sout vers le nom f\u00e9minin."},
+{words:["Le","chien","a","poursuivi","le","chat","car","il","\u00e9tait","rapide"],focusIdx:7,
+attn:[.04,.18,.03,.12,.04,.28,.03,.0,.06,.10],top:[5,1,3],
+explanation:"\u201eIl\u201c regarde \u201echat\u201c (0.28) et \u201echien\u201c (0.18). Lequel est \u201eil\u201c\u00a0? Le contexte aide \u00e0 d\u00e9cider."}
+]},
+{title:"Connexions d\u2019action",
+description:"Les verbes doivent conna\u00eetre leurs sujets et objets. Le mod\u00e8le regarde qui fait quoi \u00e0 qui.",
+concept:"Attention sujet-verbe-objet",
+takeaway:"Les verbes sont des hubs d\u2019attention \u2014 ils se connectent aux sujets et aux objets.",
+challenges:[
+{words:["Le","chef","a","soigneusement","pr\u00e9par\u00e9","le","repas","exotique"],focusIdx:4,
+attn:[.06,.32,.04,.15,.0,.05,.22,.08],top:[1,6,3],
+explanation:"\u201ePr\u00e9par\u00e9\u201c regarde \u201echef\u201c (0.32, qui\u00a0?) et \u201erepas\u201c (0.22, quoi\u00a0?). \u201eSoigneusement\u201c (0.15) re\u00e7oit aussi de l\u2019attention."},
+{words:["Elle","a","rapidement","ferm\u00e9","la","fen\u00eatre","avant","la","pluie"],focusIdx:3,
+attn:[.30,.04,.12,.0,.05,.24,.04,.04,.12],top:[0,5,2],
+explanation:"\u201eFerm\u00e9\u201c se concentre sur \u201eElle\u201c (0.30, qui\u00a0?) et \u201efen\u00eatre\u201c (0.24, quoi\u00a0?). \u201ePluie\u201c (0.12) donne la raison."}
+]},
+{title:"Le sens par le contexte",
+description:"Le m\u00eame mot peut signifier diff\u00e9rentes choses. L\u2019attention regarde les mots voisins pour lever l\u2019ambigu\u00eft\u00e9.",
+concept:"D\u00e9sambigu\u00efsation contextuelle",
+takeaway:"Pour les mots ambigus, l\u2019attention cherche les mots de contexte qui clarifient le sens.",
+challenges:[
+{words:["L\u2019","avocat","dans","la","salade","\u00e9tait","d\u00e9licieux"],focusIdx:1,
+attn:[.06,.0,.05,.04,.35,.08,.25],top:[4,6,5],
+explanation:"\u201eAvocat\u201c regarde \u201esalade\u201c (0.35) et \u201ed\u00e9licieux\u201c (0.25) \u2014 contexte alimentaire, pas juridique."},
+{words:["L\u2019","avocat","de","la","d\u00e9fense","a","plaid\u00e9","l\u2019innocence"],focusIdx:1,
+attn:[.05,.0,.04,.04,.32,.05,.25,.15],top:[4,6,7],
+explanation:"\u201eAvocat\u201c observe \u201ed\u00e9fense\u201c (0.32) et \u201eplaid\u00e9\u201c (0.25) \u2014 contexte juridique. M\u00eame mot, attention compl\u00e8tement diff\u00e9rente."}
+]},
+{title:"Connexions longue distance",
+description:"L\u2019attention peut traverser toute la phrase. Un mot \u00e0 la fin peut observer fortement un mot au d\u00e9but.",
+concept:"D\u00e9pendances longue distance",
+takeaway:"Les transformers peuvent porter attention \u00e0 N\u2019IMPORTE quelle position, peu importe la distance.",
+challenges:[
+{words:["Le","musicien","qui","a","remport\u00e9","le","Grammy","a","enfin","sorti","son","album"],focusIdx:10,
+attn:[.04,.38,.03,.04,.06,.03,.08,.04,.04,.05,.0,.12],top:[1,11,6],
+explanation:"\u201eSon\u201c remonte jusqu\u2019\u00e0 \u201emusicien\u201c (0.38) \u2014 9 mots en arri\u00e8re\u00a0! L\u2019attention longue port\u00e9e est la superpuissance du transformer."},
+{words:["Bien","que","l\u2019exp\u00e9rience","ait","\u00e9chou\u00e9","l\u2019\u00e9quipe","restait","optimiste"],focusIdx:7,
+attn:[.15,.05,.10,.04,.20,.22,.06,.0],top:[5,4,0],
+explanation:"\u201eOptimiste\u201c observe \u201e\u00e9quipe\u201c (0.22, qui\u00a0?), \u201e\u00e9chou\u00e9\u201c (0.20, malgr\u00e9 quoi\u00a0?) et \u201eBien\u201c (0.15, le contraste)."}
+]},
+{title:"Le tableau complet",
+description:"Pronoms, verbes, ambigu\u00eft\u00e9s et connexions longue distance \u2014 tout en m\u00eame temps.",
+concept:"Attention multi-t\u00eate en action",
+takeaway:"Dans un vrai transformer, 12 \u00e0 96 t\u00eates d\u2019attention fonctionnent simultan\u00e9ment pour construire une compr\u00e9hension riche de chaque mot.",
+challenges:[
+{words:["Quand","le","PDG","a","annonc\u00e9","des","licenciements","les","employ\u00e9s","ont","craint","pour","leurs","emplois"],focusIdx:12,
+attn:[.04,.03,.10,.03,.08,.04,.14,.03,.32,.03,.06,.03,.0,.10],top:[8,6,2],
+explanation:"\u201eLeurs\u201c observe fortement \u201eemploy\u00e9s\u201c (0.32) et \u201elicenciements\u201c (0.14). Plusieurs patterns d\u2019attention travaillent ensemble."},
+{words:["Le","vieil","homme","au","bord","de","la","mer","racontait","des","histoires","sur","les","navires"],focusIdx:8,
+attn:[.04,.06,.28,.03,.05,.03,.03,.14,.0,.04,.18,.04,.04,.10],top:[2,10,7],
+explanation:"\u201eRacontait\u201c observe \u201ehomme\u201c (0.28, qui\u00a0?), \u201ehistoires\u201c (0.18, quoi\u00a0?) et \u201emer\u201c (0.14, o\u00f9\u00a0?)."}
+]}
+]},
+it:{rounds:[
+{title:"Chi fa cosa?",
+description:"I pronomi devono sapere a chi si riferiscono. Quando il modello vede \u201clei\u201d o \u201cesso\u201d, guarda indietro per trovare il nome.",
+concept:"Risoluzione dei pronomi",
+takeaway:"I pronomi sono magneti di attenzione \u2014 guardano quasi sempre indietro al nome a cui si riferiscono.",
+challenges:[
+{words:["Anna","ha","preparato","una","torta","e","lei","l\u2019ha","mangiata"],focusIdx:6,
+attn:[.45,.05,.08,.03,.12,.02,.0,.06,.10],top:[0,4,8],
+explanation:"\u201cLei\u201d osserva fortemente \u201cAnna\u201d (0.45) \u2014 il pronome si risolve al nome femminile."},
+{words:["Il","cane","ha","inseguito","il","gatto","perch\u00e9","era","veloce"],focusIdx:7,
+attn:[.04,.18,.03,.12,.04,.28,.03,.0,.10],top:[5,1,3],
+explanation:"\u201cEra\u201d guarda \u201cgatto\u201d (0.28) e \u201ccane\u201d (0.18). Quale dei due? Il contesto aiuta a decidere."}
+]},
+{title:"Connessioni d\u2019azione",
+description:"I verbi devono conoscere i loro soggetti e oggetti. Il modello guarda chi fa cosa a chi.",
+concept:"Attenzione soggetto-verbo-oggetto",
+takeaway:"I verbi sono hub di attenzione \u2014 si collegano sia ai soggetti che agli oggetti.",
+challenges:[
+{words:["Lo","chef","ha","preparato","con","cura","il","pasto","esotico"],focusIdx:3,
+attn:[.05,.32,.04,.0,.04,.12,.05,.25,.08],top:[1,7,5],
+explanation:"\u201cPreparato\u201d guarda \u201cchef\u201d (0.32, chi?) e \u201cpasto\u201d (0.25, cosa?). \u201cCura\u201d (0.12) riceve attenzione come modificatore."},
+{words:["Lei","ha","chiuso","rapidamente","la","finestra","prima","della","pioggia"],focusIdx:2,
+attn:[.30,.04,.0,.12,.05,.25,.04,.04,.12],top:[0,5,3],
+explanation:"\u201cChiuso\u201d si concentra su \u201cLei\u201d (0.30, chi?) e \u201cfinestra\u201d (0.25, cosa?). \u201cPioggia\u201d (0.12) d\u00e0 la ragione."}
+]},
+{title:"Significato dal contesto",
+description:"La stessa parola pu\u00f2 significare cose diverse. L\u2019attenzione guarda le parole circostanti per risolvere l\u2019ambiguit\u00e0.",
+concept:"Disambiguazione contestuale",
+takeaway:"Per le parole ambigue, l\u2019attenzione cerca le parole di contesto che chiariscono il significato.",
+challenges:[
+{words:["La","penna","sul","tavolo","era","rossa"],focusIdx:1,
+attn:[.06,.0,.06,.20,.10,.30],top:[5,3,4],
+explanation:"\u201cPenna\u201d guarda \u201crossa\u201d (0.30) e \u201ctavolo\u201d (0.20) \u2014 contesto di oggetto da scrittura, non di sanzione."},
+{words:["La","penna","prevista","dal","codice","\u00e8","severa"],focusIdx:1,
+attn:[.05,.0,.25,.05,.30,.06,.18],top:[4,2,6],
+explanation:"\u201cPenna\u201d osserva \u201ccodice\u201d (0.30) e \u201cprevista\u201d (0.25) \u2014 contesto giuridico. Stessa parola, attenzione completamente diversa."}
+]},
+{title:"Connessioni a lunga distanza",
+description:"L\u2019attenzione pu\u00f2 attraversare l\u2019intera frase. Una parola alla fine pu\u00f2 osservare fortemente una parola all\u2019inizio.",
+concept:"Dipendenze a lunga distanza",
+takeaway:"I transformer possono prestare attenzione a QUALSIASI posizione, indipendentemente dalla distanza.",
+challenges:[
+{words:["Il","musicista","che","ha","vinto","il","Grammy","ha","finalmente","pubblicato","il","suo","album"],focusIdx:11,
+attn:[.03,.38,.03,.03,.06,.03,.08,.03,.04,.05,.03,.0,.12],top:[1,12,6],
+explanation:"\u201cSuo\u201d risale fino a \u201cmusicista\u201d (0.38) \u2014 10 parole indietro! L\u2019attenzione a lunga distanza \u00e8 il superpotere del transformer."},
+{words:["Nonostante","l\u2019esperimento","sia","fallito","il","team","\u00e8","rimasto","ottimista"],focusIdx:8,
+attn:[.18,.10,.04,.20,.04,.22,.04,.06,.0],top:[5,3,0],
+explanation:"\u201cOttimista\u201d osserva \u201cteam\u201d (0.22, chi?), \u201cfallito\u201d (0.20, nonostante cosa?) e \u201cNonostante\u201d (0.18, il contrasto)."}
+]},
+{title:"Il quadro completo",
+description:"Pronomi, verbi, ambiguit\u00e0 e connessioni a lunga distanza \u2014 tutto simultaneamente.",
+concept:"Attenzione multi-testa in azione",
+takeaway:"In un vero transformer, 12-96 teste di attenzione operano simultaneamente per costruire una comprensione ricca di ogni parola.",
+challenges:[
+{words:["Quando","il","CEO","ha","annunciato","i","licenziamenti","i","dipendenti","hanno","temuto","per","i","loro","posti"],focusIdx:13,
+attn:[.03,.03,.10,.03,.08,.03,.14,.03,.32,.03,.06,.03,.03,.0,.10],top:[8,6,2],
+explanation:"\u201cLoro\u201d osserva fortemente \u201cdipendenti\u201d (0.32) e \u201clicenziamenti\u201d (0.14). Molteplici pattern di attenzione lavorano insieme."},
+{words:["Il","vecchio","uomo","sul","mare","raccontava","storie","sui","grandi","velieri"],focusIdx:5,
+attn:[.04,.06,.28,.04,.14,.0,.18,.04,.06,.12],top:[2,6,4],
+explanation:"\u201cRaccontava\u201d osserva \u201cuomo\u201d (0.28, chi?), \u201cstorie\u201d (0.18, cosa?) e \u201cmare\u201d (0.14, dove?). Molteplici dipendenze risolte contemporaneamente."}
+]}
+]}
+};
+
+// ==================== STATE ====================
+let lang='en',gameData=null;
+const state={round:0,challenge:0,score:0,roundScore:0,roundGood:0,roundTotal:0,
+  totalChallenges:0,completedChallenges:0,maxScore:0,selected:new Set()};
+const $=id=>document.getElementById(id);
+const show=id=>{document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));$(id).classList.add('active');};
+const t=()=>UI[lang];
+function getCR(){return gameData.rounds[state.round];}
+function getCC(){return getCR().challenges[state.challenge];}
+
+function init(){
+  const grid=$('lang-grid');grid.innerHTML='';
+  [{code:'en',flag:'\ud83c\uddec\ud83c\udde7',label:'English'},{code:'de',flag:'\ud83c\udde9\ud83c\uddea',label:'Deutsch'},{code:'fr',flag:'\ud83c\uddeb\ud83c\uddf7',label:'Fran\u00e7ais'},{code:'it',flag:'\ud83c\uddee\ud83c\uddf9',label:'Italiano'}].forEach(l=>{
+    const btn=document.createElement('button');btn.className='lang-btn';
+    btn.innerHTML=`<span class="lang-flag">${l.flag}</span>${l.label}`;
+    btn.addEventListener('click',()=>startWithLang(l.code));grid.appendChild(btn);
+  });
+  $('title-heading').innerHTML=UI.en.heading;$('title-subtitle').textContent=UI.en.subtitle;
+}
+function startWithLang(code){
+  lang=code;document.documentElement.lang=code;gameData=G[code];
+  state.round=0;state.score=0;state.completedChallenges=0;state.totalChallenges=0;state.maxScore=0;
+  gameData.rounds.forEach(r=>{state.totalChallenges+=r.challenges.length;r.challenges.forEach(()=>state.maxScore+=100);});
+  showRoundIntro();
+}
+function showRoundIntro(){
+  const r=getCR();
+  $('intro-round-num').textContent=t().roundN(state.round+1,gameData.rounds.length);
+  $('intro-title').textContent=r.title;$('intro-desc').textContent=r.description;
+  $('intro-concept').textContent=r.concept;$('btn-begin').textContent=t().begin;
+  show('screen-round-intro');
+}
+function startRound(){
+  state.challenge=0;state.roundScore=0;state.roundGood=0;state.roundTotal=0;
+  show('screen-play');showChallenge();
+}
+function showChallenge(){
+  const r=getCR(),ch=getCC();
+  $('play-round-label').textContent=t().roundN(state.round+1,gameData.rounds.length);
+  $('play-round-title').textContent=r.title;$('play-score').textContent=state.score;
+  $('play-instruction').textContent=t().instruction;
+  $('focus-prompt').innerHTML=t().focusPrompt(ch.words[ch.focusIdx]);
+  $('btn-submit').textContent=t().submit;$('explanation-label').textContent=t().howItWorks;
+  $('submit-row').style.display='flex';$('score-row').style.display='none';
+  $('explanation-area').classList.remove('visible');$('next-row').style.display='none';
+  $('legend').style.display='none';
+  state.selected=new Set();
+
+  const area=$('sentence-area');area.innerHTML='';
+  ch.words.forEach((w,i)=>{
+    const btn=document.createElement('button');
+    btn.className='word-btn'+(i===ch.focusIdx?' focus':'');
+    btn.innerHTML=w+'<div class="attn-bar"></div>';
+    btn.dataset.idx=i;
+    if(i!==ch.focusIdx) btn.addEventListener('click',()=>toggleWord(btn,i));
+    area.appendChild(btn);
+  });
+  updateProgress();
+}
+function toggleWord(btn,idx){
+  if(state.selected.has(idx)){state.selected.delete(idx);btn.classList.remove('selected');}
+  else{state.selected.add(idx);btn.classList.add('selected');}
+}
+function submitSelection(){
+  if(state.selected.size===0)return;
+  const ch=getCC();
+  $('submit-row').style.display='none';
+
+  // Reveal attention weights on all words
+  const btns=$('sentence-area').querySelectorAll('.word-btn');
+  const topSet=new Set(ch.top);
+  let hits=0;
+  btns.forEach((btn,i)=>{
+    if(i===ch.focusIdx)return;
+    btn.classList.add('revealed');
+    const bar=btn.querySelector('.attn-bar');
+    const w=ch.attn[i];
+    setTimeout(()=>{bar.style.width=Math.max(w*100*2.5,4)+'%';},i*60);
+    const isTop=topSet.has(i), picked=state.selected.has(i);
+    if(picked&&isTop){btn.classList.add('hit');hits++;}
+    else if(!picked&&isTop){btn.classList.add('miss');}
+    else if(picked&&!isTop){btn.classList.add('wrong');}
+  });
+
+  const points=Math.round((hits/ch.top.length)*100);
+  state.score+=points;state.roundScore+=points;state.roundTotal++;
+  if(hits>=2)state.roundGood++;
+
+  const q=points>=80?'good':points>=40?'ok':'bad';
+  $('score-row').style.display='flex';
+  $('round-points').className='score-pill '+q;$('round-points').textContent='+'+points;
+  $('play-score').textContent=state.score;
+  $('legend').style.display='flex';
+  $('explanation-text').textContent=ch.explanation;
+  $('explanation-area').classList.add('visible');
+  $('next-row').style.display='flex';$('btn-next').textContent=t().continue_;
+}
+function nextChallenge(){
+  state.completedChallenges++;
+  if(state.challenge+1<getCR().challenges.length){state.challenge++;showChallenge();return;}
+  showRoundSummary();
+}
+function showRoundSummary(){
+  const r=getCR();
+  $('summary-round-num').textContent=t().roundComplete(state.round+1);
+  $('summary-score').textContent='+'+state.roundScore;
+  $('summary-breakdown').textContent=t().breakdown(state.roundGood,state.roundTotal,state.score);
+  $('summary-takeaway-label').textContent=t().keyTakeaway;$('summary-takeaway').textContent=r.takeaway;
+  $('btn-next-round').textContent=state.round+1>=gameData.rounds.length?t().seeResults:t().nextRound;
+  show('screen-round-summary');
+}
+function nextRound(){
+  if(state.round+1>=gameData.rounds.length){showComplete();return;}
+  state.round++;state.challenge=0;showRoundIntro();
+}
+function showComplete(){
+  const pct=state.score/state.maxScore;
+  const idx=pct>=.9?4:pct>=.75?3:pct>=.5?2:pct>=.25?1:0;
+  $('complete-heading').textContent=t().gameComplete;$('final-score').textContent=state.score;
+  $('final-title').textContent=t().titles[idx];$('final-desc').textContent=t().titleDescs[idx];
+  $('btn-play-again').textContent=t().playAgain;$('btn-all-games').textContent=t().allGames;
+  const grid=$('concepts-grid');grid.innerHTML='';
+  t().concepts.forEach(([ti,de])=>{const c=document.createElement('div');c.className='concept-card';
+    c.innerHTML=`<div class="cc-title">${ti}</div><div class="cc-desc">${de}</div>`;grid.appendChild(c);});
+  show('screen-complete');
+}
+function updateProgress(){
+  $('progress-fill').style.width=(state.completedChallenges/state.totalChallenges)*100+'%';
+  $('progress-label').textContent=t().stepN(state.completedChallenges+1,state.totalChallenges);
+}
+document.addEventListener('keydown',e=>{
+  if(e.key==='Enter'||e.key===' '){e.preventDefault();
+    if($('next-row').style.display!=='none'){$('btn-next').click();return;}
+    const a=document.querySelector('.screen.active');if(a){const b=a.querySelector('.btn-primary');if(b)b.click();}
+  }
+});
+
+const urlLang=new URLSearchParams(window.location.search).get('lang');
+if(urlLang&&G[urlLang]){init();startWithLang(urlLang);}else{init();}
+</script>
+</body>
+</html>
