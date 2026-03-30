@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Word Space Explorer</title>
+<style>
+  :root {
+    --bg: #0f1729;
+    --bg-card: #1a2340;
+    --bg-hover: #243056;
+    --text: #e2e8f0;
+    --text-dim: #8892a8;
+    --accent: #6366f1;
+    --green: #22c55e;
+    --green-bg: rgba(34,197,94,0.15);
+    --amber: #f59e0b;
+    --amber-bg: rgba(245,158,11,0.15);
+    --red: #ef4444;
+    --red-bg: rgba(239,68,68,0.15);
+    --radius: 10px;
+    --max-w: 720px;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg); color: var(--text);
+    min-height: 100vh; display: flex; justify-content: center; padding: 16px;
+    overflow-x: hidden;
+  }
+  .screen { display:none; flex-direction:column; width:100%; max-width:var(--max-w); }
+  .screen.active { display:flex; }
+  button { font-family:inherit; cursor:pointer; border:none; border-radius:var(--radius); font-size:1rem; transition:all 0.2s; }
+  button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  .btn-primary { background:var(--accent); color:#fff; padding:14px 32px; font-size:1.1rem; font-weight:600; }
+  .btn-primary:hover { filter:brightness(1.15); transform:translateY(-1px); }
+  .btn-secondary { background:var(--bg-card); color:var(--text); padding:12px 24px; border:1px solid rgba(255,255,255,0.1); font-weight:600; }
+  .btn-secondary:hover { background:var(--bg-hover); }
+  .back-link { color:var(--text-dim); text-decoration:none; font-size:0.9rem; position:fixed; top:16px; left:16px; z-index:10; }
+  .back-link:hover { color:var(--text); }
+
+  .lang-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; width:100%; max-width:360px; }
+  .lang-btn { background:var(--bg-card); border:2px solid rgba(99,102,241,0.2); color:var(--text); padding:18px 16px; border-radius:var(--radius); font-size:1.1rem; font-weight:600; display:flex; align-items:center; gap:10px; justify-content:center; font-family:inherit; }
+  .lang-btn:hover { border-color:var(--accent); background:var(--bg-hover); }
+  .lang-flag { font-size:1.5rem; }
+
+  /* Title */
+  #screen-title { align-items:center; justify-content:center; text-align:center; gap:24px; min-height:80vh; }
+  #screen-title h1 { font-size:2.2rem; font-weight:800; line-height:1.2; }
+  #screen-title h1 span { color:var(--accent); }
+  #screen-title .subtitle { color:var(--text-dim); font-size:1.05rem; max-width:500px; line-height:1.6; }
+
+  /* Round intro */
+  #screen-round-intro { align-items:center; justify-content:center; text-align:center; gap:20px; min-height:60vh; }
+  #screen-round-intro .round-num { color:var(--accent); font-size:0.9rem; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; }
+  #screen-round-intro h2 { font-size:1.8rem; font-weight:800; }
+  #screen-round-intro .round-desc { color:var(--text-dim); font-size:1.05rem; max-width:500px; line-height:1.6; }
+  .concept-badge { display:inline-block; background:rgba(99,102,241,0.15); color:var(--accent); padding:6px 16px; border-radius:99px; font-size:0.85rem; font-weight:600; }
+
+  /* Header */
+  .game-header { display:flex; justify-content:space-between; align-items:center; padding:12px 0; margin-bottom:8px; border-bottom:1px solid rgba(255,255,255,0.08); }
+  .game-header .round-label { color:var(--text-dim); font-size:0.9rem; }
+  .game-header .round-title { font-weight:700; font-size:1rem; }
+  .game-header .score { font-size:1.1rem; font-weight:700; color:var(--accent); }
+
+  /* Instruction */
+  .instruction { color:var(--text-dim); font-size:0.9rem; margin-bottom:8px; text-align:center; }
+
+  /* Word tray */
+  .word-tray {
+    display:flex; flex-wrap:wrap; gap:8px; justify-content:center;
+    padding:12px; margin-bottom:12px; min-height:48px;
+    background:var(--bg-card); border-radius:var(--radius);
+    border:2px dashed rgba(255,255,255,0.08);
+  }
+  .word-chip {
+    padding:8px 16px; border-radius:8px; font-weight:600; font-size:0.95rem;
+    cursor:grab; user-select:none; transition:all 0.15s;
+    background:var(--accent); color:#fff;
+    touch-action:none;
+  }
+  .word-chip:hover { filter:brightness(1.15); transform:scale(1.05); }
+  .word-chip.dragging { opacity:0.5; }
+  .word-chip.placed { background:rgba(99,102,241,0.3); cursor:grab; }
+
+  /* Canvas area */
+  .canvas-wrap {
+    position:relative; width:100%; aspect-ratio:4/3;
+    background:var(--bg-card); border-radius:var(--radius); overflow:hidden;
+    margin-bottom:12px; border:1px solid rgba(255,255,255,0.06);
+    touch-action:none;
+  }
+  .canvas-wrap canvas { width:100%; height:100%; display:block; }
+  .anchor-label {
+    position:absolute; color:var(--text); font-size:0.8rem; font-weight:700;
+    pointer-events:none; white-space:nowrap; text-shadow:0 1px 4px rgba(0,0,0,0.8);
+    transform:translate(-50%,-150%);
+  }
+  .placed-label {
+    position:absolute; font-size:0.8rem; font-weight:600;
+    pointer-events:none; white-space:nowrap; padding:3px 8px;
+    border-radius:4px; background:rgba(99,102,241,0.8); color:#fff;
+    transform:translate(-50%,-150%); z-index:2;
+  }
+  .result-label {
+    position:absolute; font-size:0.8rem; font-weight:600;
+    pointer-events:none; white-space:nowrap; padding:3px 8px;
+    border-radius:4px; transform:translate(-50%,-150%); z-index:2;
+  }
+  .result-label.good { background:rgba(34,197,94,0.8); color:#fff; }
+  .result-label.ok { background:rgba(245,158,11,0.8); color:#000; }
+  .result-label.bad { background:rgba(239,68,68,0.8); color:#fff; }
+
+  /* Buttons */
+  .btn-row { display:flex; justify-content:center; gap:12px; padding:8px 0 12px; flex-wrap:wrap; }
+
+  /* Explanation */
+  .explanation-area {
+    background:rgba(99,102,241,0.08); border-left:3px solid var(--accent);
+    border-radius:0 var(--radius) var(--radius) 0;
+    padding:16px 20px; margin-bottom:12px; font-size:0.95rem; line-height:1.6;
+    opacity:0; transform:translateY(8px); transition:all 0.4s;
+  }
+  .explanation-area.visible { opacity:1; transform:translateY(0); }
+  .explanation-area .label { font-weight:700; color:var(--accent); margin-bottom:4px; font-size:0.85rem; text-transform:uppercase; letter-spacing:0.05em; }
+
+  .score-pill { display:inline-block; padding:6px 16px; border-radius:99px; font-weight:700; font-size:0.9rem; }
+  .score-pill.good { background:var(--green-bg); color:var(--green); }
+  .score-pill.ok { background:var(--amber-bg); color:var(--amber); }
+  .score-pill.bad { background:var(--red-bg); color:var(--red); }
+
+  /* Progress */
+  .progress-area { margin-top:auto; padding-top:12px; }
+  .progress-bar-bg { height:6px; background:rgba(255,255,255,0.06); border-radius:3px; overflow:hidden; }
+  .progress-bar-fill { height:100%; background:var(--accent); border-radius:3px; transition:width 0.4s ease-out; }
+  .progress-label { text-align:center; font-size:0.8rem; color:var(--text-dim); margin-top:6px; }
+
+  /* Summary / Complete */
+  #screen-round-summary,#screen-complete { align-items:center; justify-content:center; text-align:center; gap:20px; min-height:60vh; }
+  .summary-score { font-size:2.5rem; font-weight:800; color:var(--accent); }
+  .summary-breakdown { color:var(--text-dim); font-size:0.95rem; }
+  .takeaway-box { background:var(--bg-card); border:1px solid rgba(99,102,241,0.2); border-radius:var(--radius); padding:20px 24px; max-width:500px; text-align:left; line-height:1.6; }
+  .takeaway-box .takeaway-label { font-weight:700; color:var(--accent); font-size:0.85rem; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:8px; }
+  .final-score { font-size:3rem; font-weight:800; color:var(--accent); }
+  .final-title { font-size:1.3rem; font-weight:700; padding:8px 24px; border-radius:99px; background:rgba(99,102,241,0.15); color:var(--accent); }
+  .concepts-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; max-width:500px; width:100%; text-align:left; }
+  .concept-card { background:var(--bg-card); border-radius:var(--radius); padding:12px 16px; }
+  .concept-card .cc-title { font-weight:700; font-size:0.85rem; margin-bottom:4px; }
+  .concept-card .cc-desc { font-size:0.8rem; color:var(--text-dim); line-height:1.4; }
+
+  @media (max-width:500px) {
+    #screen-title h1 { font-size:1.7rem; }
+    .canvas-wrap { aspect-ratio:1/1; }
+    .word-chip { font-size:0.85rem; padding:6px 12px; }
+    .concepts-grid { grid-template-columns:1fr; }
+    .lang-grid { grid-template-columns:1fr; max-width:240px; }
+  }
+</style>
+</head>
+<body>
+<a href="../" class="back-link">&larr; All Games</a>
+
+<div id="screen-title" class="screen active">
+  <h1 id="title-heading"></h1>
+  <p class="subtitle" id="title-subtitle"></p>
+  <div class="lang-grid" id="lang-grid"></div>
+</div>
+
+<div id="screen-round-intro" class="screen">
+  <span class="round-num" id="intro-round-num"></span>
+  <h2 id="intro-title"></h2>
+  <p class="round-desc" id="intro-desc"></p>
+  <span class="concept-badge" id="intro-concept"></span>
+  <button class="btn-primary" id="btn-begin" onclick="startRound()"></button>
+</div>
+
+<div id="screen-play" class="screen">
+  <div class="game-header">
+    <div><div class="round-label" id="play-round-label"></div><div class="round-title" id="play-round-title"></div></div>
+    <span class="score" id="play-score">0</span>
+  </div>
+  <div class="instruction" id="play-instruction"></div>
+  <div class="word-tray" id="word-tray"></div>
+  <div class="canvas-wrap" id="canvas-wrap"><canvas id="canvas"></canvas></div>
+  <div class="btn-row" id="submit-row">
+    <button class="btn-secondary" id="btn-reset" onclick="resetPlacements()"></button>
+    <button class="btn-primary" id="btn-submit" onclick="submitPlacements()"></button>
+  </div>
+  <div class="btn-row" id="continue-row" style="display:none">
+    <span class="score-pill" id="round-points"></span>
+  </div>
+  <div class="explanation-area" id="explanation-area">
+    <div class="label" id="explanation-label"></div>
+    <p id="explanation-text"></p>
+  </div>
+  <div class="btn-row" id="next-row" style="display:none">
+    <button class="btn-primary" id="btn-next" onclick="nextChallenge()"></button>
+  </div>
+  <div class="progress-area">
+    <div class="progress-bar-bg"><div class="progress-bar-fill" id="progress-fill"></div></div>
+    <div class="progress-label" id="progress-label"></div>
+  </div>
+</div>
+
+<div id="screen-round-summary" class="screen">
+  <span class="round-num" id="summary-round-num"></span>
+  <div class="summary-score" id="summary-score"></div>
+  <div class="summary-breakdown" id="summary-breakdown"></div>
+  <div class="takeaway-box"><div class="takeaway-label" id="summary-takeaway-label"></div><p id="summary-takeaway"></p></div>
+  <button class="btn-primary" id="btn-next-round" onclick="nextRound()"></button>
+</div>
+
+<div id="screen-complete" class="screen">
+  <h2 id="complete-heading"></h2>
+  <div class="final-score" id="final-score"></div>
+  <div class="final-title" id="final-title"></div>
+  <p style="color:var(--text-dim);max-width:500px;line-height:1.6" id="final-desc"></p>
+  <div class="concepts-grid" id="concepts-grid"></div>
+  <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
+    <button class="btn-primary" id="btn-play-again" onclick="location.reload()"></button>
+    <button class="btn-secondary" onclick="window.location.href='../'">&#8592; <span id="btn-all-games"></span></button>
+  </div>
+</div>
+
+<script>
+// ==================== UI TRANSLATIONS ====================
+const UI = {
+  en: {
+    heading:'Word Space<br><span>Explorer</span>',
+    subtitle:'LLMs represent words as points in space \u2014 similar words are close together. Can you guess where words belong on the map? Drag them into position!',
+    begin:'Begin', continue_:'Continue', nextRound:'Next Round', seeResults:'See Results',
+    submit:'Check', reset:'Reset', howItWorks:'Why these words are here',
+    keyTakeaway:'Key Takeaway', gameComplete:'Game Complete!', playAgain:'Play Again', allGames:'All Games',
+    instruction:'Drag words from the tray onto the map. Similar words should be close together.',
+    roundN:(n,t)=>`Round ${n} of ${t}`, roundComplete:n=>`Round ${n} Complete`,
+    stepN:(n,t)=>`Step ${n} of ${t}`, totalScore:s=>`Total: ${s} points`,
+    breakdown:(c,t,s)=>`${c}/${t} close placements \u00b7 Total: ${s} points`,
+    titles:['Lost in Space','Neighborhood Noticer','Cluster Spotter','Embedding Expert','Vector Virtuoso'],
+    titleDescs:[
+      "Word space is tricky! But now you know: LLMs place similar words near each other in a vast multi-dimensional space.",
+      "You're starting to see the neighborhoods. Words cluster by meaning, and those clusters reveal how LLMs understand language.",
+      "Solid intuition! You can feel which words belong together \u2014 that's exactly what embeddings capture mathematically.",
+      "Impressive! You clearly understand how semantic similarity maps to spatial distance in word embeddings.",
+      "You think in vectors! You've internalized how LLMs represent meaning as geometry in high-dimensional space."
+    ],
+    concepts:[
+      ['Word Embeddings','Every word is a point in 300+ dimensional space. Similar meanings = nearby points.'],
+      ['Semantic Clusters','Animals cluster together, emotions cluster together \u2014 embeddings capture categories automatically.'],
+      ['Analogy as Arithmetic','king \u2212 man + woman \u2248 queen. Relationships are consistent directions in word space.'],
+      ['Context Shapes Meaning','The same word can have different embeddings depending on context (bank: river vs. money).'],
+      ['Distance = Similarity','Cosine similarity measures the angle between word vectors \u2014 small angle means similar meaning.'],
+      ['Learned, Not Programmed','Nobody told the model that "dog" and "cat" are similar. It learned this from patterns in text.'],
+    ]
+  },
+  de: {
+    heading:'Wort-Raum<br><span>Entdecker</span>',
+    subtitle:'LLMs stellen W\u00f6rter als Punkte im Raum dar \u2014 \u00e4hnliche W\u00f6rter sind nah beieinander. Kannst du erraten, wohin die W\u00f6rter geh\u00f6ren?',
+    begin:'Los geht\u2019s', continue_:'Weiter', nextRound:'N\u00e4chste Runde', seeResults:'Ergebnis',
+    submit:'Pr\u00fcfen', reset:'Zur\u00fccksetzen', howItWorks:'Warum diese W\u00f6rter hier sind',
+    keyTakeaway:'Wichtigste Erkenntnis', gameComplete:'Spiel beendet!', playAgain:'Nochmal', allGames:'Alle Spiele',
+    instruction:'Ziehe W\u00f6rter aus der Leiste auf die Karte. \u00c4hnliche W\u00f6rter sollten nah beieinander sein.',
+    roundN:(n,t)=>`Runde ${n} von ${t}`, roundComplete:n=>`Runde ${n} abgeschlossen`,
+    stepN:(n,t)=>`Schritt ${n} von ${t}`, totalScore:s=>`Gesamt: ${s} Punkte`,
+    breakdown:(c,t,s)=>`${c}/${t} nahe Platzierungen \u00b7 Gesamt: ${s} Punkte`,
+    titles:['Verloren im Raum','Nachbarschafts-Sp\u00e4her','Cluster-Finder','Embedding-Experte','Vektor-Virtuose'],
+    titleDescs:[
+      "Der Wortraum ist knifflig! Aber jetzt wei\u00dft du: LLMs platzieren \u00e4hnliche W\u00f6rter nah beieinander in einem riesigen Raum.",
+      "Du beginnst, die Nachbarschaften zu sehen. W\u00f6rter gruppieren sich nach Bedeutung.",
+      "Solide Intuition! Du sp\u00fcrst, welche W\u00f6rter zusammengeh\u00f6ren \u2014 genau das erfassen Embeddings mathematisch.",
+      "Beeindruckend! Du verstehst, wie semantische \u00c4hnlichkeit auf r\u00e4umliche N\u00e4he abgebildet wird.",
+      "Du denkst in Vektoren! Du hast verinnerlicht, wie LLMs Bedeutung als Geometrie darstellen."
+    ],
+    concepts:[
+      ['Wort-Embeddings','Jedes Wort ist ein Punkt in 300+ Dimensionen. \u00c4hnliche Bedeutung = nahe Punkte.'],
+      ['Semantische Cluster','Tiere gruppieren sich, Emotionen gruppieren sich \u2014 Embeddings erfassen Kategorien automatisch.'],
+      ['Analogie als Arithmetik','K\u00f6nig \u2212 Mann + Frau \u2248 K\u00f6nigin. Beziehungen sind konsistente Richtungen.'],
+      ['Kontext formt Bedeutung','Dasselbe Wort kann verschiedene Embeddings haben je nach Kontext.'],
+      ['Distanz = \u00c4hnlichkeit','Kosinus-\u00c4hnlichkeit misst den Winkel zwischen Vektoren \u2014 kleiner Winkel = \u00e4hnlich.'],
+      ['Gelernt, nicht programmiert','Niemand hat dem Modell gesagt, dass "Hund" und "Katze" \u00e4hnlich sind. Es lernte das aus Text.'],
+    ]
+  },
+  fr: {
+    heading:'Explorateur<br><span>de l\u2019espace des mots</span>',
+    subtitle:'Les LLM repr\u00e9sentent les mots comme des points dans l\u2019espace \u2014 les mots similaires sont proches. Pouvez-vous deviner o\u00f9 placer les mots\u00a0?',
+    begin:'C\u2019est parti', continue_:'Continuer', nextRound:'Manche suivante', seeResults:'R\u00e9sultats',
+    submit:'V\u00e9rifier', reset:'R\u00e9initialiser', howItWorks:'Pourquoi ces mots sont ici',
+    keyTakeaway:'Point cl\u00e9', gameComplete:'Partie termin\u00e9e\u00a0!', playAgain:'Rejouer', allGames:'Tous les jeux',
+    instruction:'Glissez les mots sur la carte. Les mots similaires doivent \u00eatre proches.',
+    roundN:(n,t)=>`Manche ${n} sur ${t}`, roundComplete:n=>`Manche ${n} termin\u00e9e`,
+    stepN:(n,t)=>`\u00c9tape ${n} sur ${t}`, totalScore:s=>`Total\u00a0: ${s} points`,
+    breakdown:(c,t,s)=>`${c}/${t} placements proches \u00b7 Total\u00a0: ${s} points`,
+    titles:['Perdu dans l\u2019espace','Rep\u00e9reur de voisinages','D\u00e9couvreur de clusters','Expert en embeddings','Virtuose des vecteurs'],
+    titleDescs:[
+      "L\u2019espace des mots est complexe\u00a0! Mais maintenant vous savez : les LLM placent les mots similaires proches les uns des autres.",
+      "Vous commencez \u00e0 voir les voisinages. Les mots se regroupent par sens.",
+      "Bonne intuition\u00a0! Vous sentez quels mots vont ensemble \u2014 c\u2019est exactement ce que capturent les embeddings.",
+      "Impressionnant\u00a0! Vous comprenez comment la similarit\u00e9 s\u00e9mantique se traduit en distance spatiale.",
+      "Vous pensez en vecteurs\u00a0! Vous avez int\u00e9rioris\u00e9 comment les LLM repr\u00e9sentent le sens comme de la g\u00e9om\u00e9trie."
+    ],
+    concepts:[
+      ['Embeddings de mots','Chaque mot est un point dans un espace \u00e0 300+ dimensions. Sens similaire = points proches.'],
+      ['Clusters s\u00e9mantiques','Les animaux se regroupent, les \u00e9motions se regroupent \u2014 automatiquement.'],
+      ['Analogie = Arithm\u00e9tique','roi \u2212 homme + femme \u2248 reine. Les relations sont des directions coh\u00e9rentes.'],
+      ['Le contexte fa\u00e7onne le sens','Le m\u00eame mot peut avoir diff\u00e9rents embeddings selon le contexte.'],
+      ['Distance = Similarit\u00e9','La similarit\u00e9 cosinus mesure l\u2019angle entre vecteurs \u2014 petit angle = sens similaire.'],
+      ['Appris, pas programm\u00e9','Personne n\u2019a dit au mod\u00e8le que "chien" et "chat" sont similaires. Il l\u2019a appris.'],
+    ]
+  },
+  it: {
+    heading:'Esploratore<br><span>dello spazio parole</span>',
+    subtitle:'Gli LLM rappresentano le parole come punti nello spazio \u2014 parole simili sono vicine. Riesci a indovinare dove vanno le parole sulla mappa?',
+    begin:'Via!', continue_:'Continua', nextRound:'Prossimo round', seeResults:'Risultati',
+    submit:'Verifica', reset:'Resetta', howItWorks:'Perch\u00e9 queste parole sono qui',
+    keyTakeaway:'Concetto chiave', gameComplete:'Partita completata!', playAgain:'Gioca ancora', allGames:'Tutti i giochi',
+    instruction:'Trascina le parole sulla mappa. Parole simili dovrebbero essere vicine.',
+    roundN:(n,t)=>`Round ${n} di ${t}`, roundComplete:n=>`Round ${n} completato`,
+    stepN:(n,t)=>`Passo ${n} di ${t}`, totalScore:s=>`Totale: ${s} punti`,
+    breakdown:(c,t,s)=>`${c}/${t} posizionamenti vicini \u00b7 Totale: ${s} punti`,
+    titles:['Perso nello spazio','Osservatore di quartieri','Scopritore di cluster','Esperto di embedding','Virtuoso dei vettori'],
+    titleDescs:[
+      "Lo spazio delle parole \u00e8 complicato! Ma ora sai: gli LLM piazzano parole simili vicine in uno spazio vastissimo.",
+      "Stai iniziando a vedere i quartieri. Le parole si raggruppano per significato.",
+      "Buona intuizione! Senti quali parole stanno insieme \u2014 \u00e8 esattamente ci\u00f2 che gli embedding catturano.",
+      "Impressionante! Capisci come la similarit\u00e0 semantica si mappa in distanza spaziale.",
+      "Pensi in vettori! Hai interiorizzato come gli LLM rappresentano il significato come geometria."
+    ],
+    concepts:[
+      ['Embedding di parole','Ogni parola \u00e8 un punto in 300+ dimensioni. Significato simile = punti vicini.'],
+      ['Cluster semantici','Gli animali si raggruppano, le emozioni si raggruppano \u2014 automaticamente.'],
+      ['Analogia = Aritmetica','re \u2212 uomo + donna \u2248 regina. Le relazioni sono direzioni coerenti.'],
+      ['Il contesto plasma il senso','La stessa parola pu\u00f2 avere embedding diversi in base al contesto.'],
+      ['Distanza = Similarit\u00e0','La similarit\u00e0 del coseno misura l\u2019angolo tra vettori \u2014 angolo piccolo = significato simile.'],
+      ['Imparato, non programmato','Nessuno ha detto al modello che "cane" e "gatto" sono simili. Lo ha imparato.'],
+    ]
+  }
+};
+
+// ==================== GAME DATA ====================
+// Coordinates are 0-1 normalized. anchors = shown fixed. words = player places them.
+const GAME_DATA_ALL = {
+en: { rounds: [
+  {
+    title:"Animal Kingdom",
+    description:"Animals that are similar end up close in word space. Pets cluster together, fish cluster together, and birds stick with birds. Can you feel the neighborhoods?",
+    concept:"Semantic clusters",
+    takeaway:"The model learned that 'dog' and 'cat' are more similar than 'dog' and 'shark' just from reading text. Words that appear in similar contexts get similar embeddings \u2014 no one programmed these categories.",
+    challenges:[{
+      anchors:[{w:"dog",x:.2,y:.3},{w:"shark",x:.75,y:.7},{w:"eagle",x:.55,y:.15}],
+      words:[{w:"cat",x:.25,y:.25},{w:"puppy",x:.15,y:.35},{w:"salmon",x:.7,y:.75},{w:"parrot",x:.5,y:.2},{w:"whale",x:.8,y:.6}],
+      explanation:"Pets (dog, cat, puppy) cluster in one area, sea creatures (shark, salmon, whale) in another, and birds (eagle, parrot) form their own group. The model discovered 'animal taxonomy' just from text co-occurrence."
+    },{
+      anchors:[{w:"horse",x:.2,y:.4},{w:"ant",x:.7,y:.7},{w:"dolphin",x:.5,y:.2}],
+      words:[{w:"cow",x:.25,y:.45},{w:"bee",x:.75,y:.65},{w:"turtle",x:.45,y:.35},{w:"spider",x:.65,y:.75},{w:"pig",x:.2,y:.5}],
+      explanation:"Farm animals (horse, cow, pig) are neighbors. Insects (ant, bee, spider) cluster together. Marine life (dolphin, turtle) sits between. Size, habitat, and how we talk about them all shape the embeddings."
+    }]
+  },
+  {
+    title:"Feelings & Emotions",
+    description:"Emotions have geometry. Happy is far from sad, but angry and furious are neighbors. The model maps our inner world to coordinates.",
+    concept:"Gradients of meaning",
+    takeaway:"Emotions aren't just 'positive' and 'negative' \u2014 they form a rich landscape. 'Angry' is closer to 'furious' than to 'sad', even though both are negative. Embeddings capture these subtle gradations of meaning.",
+    challenges:[{
+      anchors:[{w:"happy",x:.2,y:.25},{w:"sad",x:.2,y:.75},{w:"angry",x:.75,y:.55}],
+      words:[{w:"joyful",x:.15,y:.2},{w:"depressed",x:.25,y:.8},{w:"furious",x:.8,y:.5},{w:"calm",x:.45,y:.3},{w:"anxious",x:.55,y:.6}],
+      explanation:"Positive emotions (happy, joyful, calm) sit on one side, negative ones (sad, depressed) on another. But 'angry' and 'furious' form their own cluster \u2014 high-energy negative is different from low-energy negative. Embeddings capture intensity, not just polarity."
+    },{
+      anchors:[{w:"love",x:.25,y:.2},{w:"hate",x:.75,y:.7},{w:"surprise",x:.5,y:.15}],
+      words:[{w:"adore",x:.2,y:.25},{w:"fear",x:.6,y:.6},{w:"disgust",x:.7,y:.65},{w:"hope",x:.35,y:.25},{w:"shock",x:.55,y:.2}],
+      explanation:"'Love' and 'adore' are almost on top of each other. 'Hate', 'fear', and 'disgust' cluster as negative emotions. 'Surprise' and 'shock' are close \u2014 they share unexpectedness. Notice how 'hope' sits between love and surprise: it's positive but uncertain."
+    }]
+  },
+  {
+    title:"Jobs & Professions",
+    description:"Professions that require similar skills or appear in similar contexts end up as neighbors. Doctors are near nurses, not near lawyers.",
+    concept:"Contextual similarity",
+    takeaway:"The model groups professions by context, not prestige. A 'surgeon' and 'nurse' appear in similar sentences (hospitals, patients, surgery), so they're close. A 'lawyer' and 'judge' share legal context. The embedding space reflects how we talk about jobs, not job descriptions.",
+    challenges:[{
+      anchors:[{w:"doctor",x:.2,y:.3},{w:"teacher",x:.5,y:.7},{w:"programmer",x:.8,y:.3}],
+      words:[{w:"nurse",x:.2,y:.4},{w:"surgeon",x:.25,y:.25},{w:"professor",x:.45,y:.65},{w:"engineer",x:.75,y:.35},{w:"student",x:.55,y:.75}],
+      explanation:"Medical (doctor, nurse, surgeon) clusters tightly. Education (teacher, professor, student) forms another group. Tech (programmer, engineer) sits together. The model learned these professional 'neighborhoods' from how we write about these jobs."
+    }]
+  },
+  {
+    title:"The Analogy Game",
+    description:"The most magical property of word embeddings: relationships work like arithmetic. King \u2212 Man + Woman \u2248 Queen. Can you find where the answer lands?",
+    concept:"Vector arithmetic",
+    takeaway:"Word relationships are encoded as directions in space. The direction from 'man' to 'woman' is the same as from 'king' to 'queen'. This isn't programmed \u2014 it emerges from the statistics of language. It's one of the most surprising discoveries in AI.",
+    challenges:[{
+      anchors:[{w:"king",x:.7,y:.2},{w:"man",x:.3,y:.2},{w:"woman",x:.3,y:.7}],
+      words:[{w:"queen",x:.7,y:.7},{w:"prince",x:.65,y:.3},{w:"princess",x:.65,y:.6}],
+      explanation:"king \u2212 man + woman = queen! The 'gender direction' is consistent: it moves king\u2192queen the same way it moves man\u2192woman. Prince\u2192princess follows the same pattern. This vector arithmetic is how embeddings encode relationships."
+    },{
+      anchors:[{w:"Paris",x:.2,y:.2},{w:"France",x:.2,y:.7},{w:"Germany",x:.7,y:.7}],
+      words:[{w:"Berlin",x:.7,y:.2},{w:"Rome",x:.35,y:.2},{w:"Italy",x:.35,y:.7}],
+      explanation:"Paris \u2212 France + Germany = Berlin! The 'capital-of' relationship is a consistent direction. The model learned geography not from maps, but from how cities and countries appear together in text. Paris:France :: Berlin:Germany :: Rome:Italy."
+    }]
+  },
+  {
+    title:"Tricky Neighbors",
+    description:"Some word relationships are surprising. Words that seem different can be close, and words that seem similar can be far apart. This reveals biases in how language works.",
+    concept:"Surprising similarities",
+    takeaway:"Embeddings reflect language, not truth. 'King' and 'queen' are close not because royalty is important, but because they appear in similar sentences. This also means biases in text become biases in embeddings \u2014 a fundamental challenge in AI fairness.",
+    challenges:[{
+      anchors:[{w:"good",x:.25,y:.2},{w:"bad",x:.25,y:.75},{w:"big",x:.75,y:.2}],
+      words:[{w:"great",x:.3,y:.15},{w:"terrible",x:.3,y:.7},{w:"small",x:.75,y:.75},{w:"huge",x:.8,y:.25},{w:"evil",x:.35,y:.8}],
+      explanation:"'Good' and 'great' are very close. Surprisingly, 'good' and 'bad' are also relatively close \u2014 they're used in the same contexts (reviews, judgments). 'Big' and 'small' are closer to each other than to 'good' because they share size-related contexts. Antonyms are often neighbors!"
+    },{
+      anchors:[{w:"coffee",x:.2,y:.35},{w:"beer",x:.7,y:.35},{w:"water",x:.45,y:.7}],
+      words:[{w:"tea",x:.25,y:.3},{w:"wine",x:.75,y:.3},{w:"juice",x:.4,y:.6},{w:"espresso",x:.2,y:.25},{w:"milk",x:.45,y:.55}],
+      explanation:"Hot drinks (coffee, tea, espresso) cluster. Alcoholic drinks (beer, wine) cluster. 'Water', 'juice', and 'milk' sit between them as basic/neutral beverages. The model mapped our drink culture into geometry!"
+    }]
+  }
+]},
+de: { rounds: [
+  {
+    title:"Tierreich",
+    description:"\u00c4hnliche Tiere landen nah beieinander im Wortraum. Haustiere gruppieren sich, Fische gruppieren sich. Sp\u00fcrst du die Nachbarschaften?",
+    concept:"Semantische Cluster",
+    takeaway:"Das Modell hat gelernt, dass 'Hund' und 'Katze' \u00e4hnlicher sind als 'Hund' und 'Hai' \u2014 nur durch Lesen von Text. W\u00f6rter in \u00e4hnlichen Kontexten bekommen \u00e4hnliche Embeddings.",
+    challenges:[{
+      anchors:[{w:"Hund",x:.2,y:.3},{w:"Hai",x:.75,y:.7},{w:"Adler",x:.55,y:.15}],
+      words:[{w:"Katze",x:.25,y:.25},{w:"Welpe",x:.15,y:.35},{w:"Lachs",x:.7,y:.75},{w:"Papagei",x:.5,y:.2},{w:"Wal",x:.8,y:.6}],
+      explanation:"Haustiere (Hund, Katze, Welpe) gruppieren sich, Meerestiere (Hai, Lachs, Wal) bilden eine andere Gruppe, V\u00f6gel (Adler, Papagei) eine dritte. Das Modell entdeckte 'Tiertaxonomie' aus Textmustern."
+    },{
+      anchors:[{w:"Pferd",x:.2,y:.4},{w:"Ameise",x:.7,y:.7},{w:"Delfin",x:.5,y:.2}],
+      words:[{w:"Kuh",x:.25,y:.45},{w:"Biene",x:.75,y:.65},{w:"Schildkr\u00f6te",x:.45,y:.35},{w:"Spinne",x:.65,y:.75},{w:"Schwein",x:.2,y:.5}],
+      explanation:"Nutztiere (Pferd, Kuh, Schwein) sind Nachbarn. Insekten (Ameise, Biene, Spinne) gruppieren sich. Meerestiere (Delfin, Schildkr\u00f6te) sitzen dazwischen."
+    }]
+  },
+  {
+    title:"Gef\u00fchle & Emotionen",
+    description:"Emotionen haben eine Geometrie. Gl\u00fccklich ist weit von traurig, aber w\u00fctend und zornig sind Nachbarn.",
+    concept:"Bedeutungsgradienten",
+    takeaway:"Emotionen sind nicht nur 'positiv' und 'negativ' \u2014 sie bilden eine reiche Landschaft. 'W\u00fctend' ist n\u00e4her an 'zornig' als an 'traurig'. Embeddings erfassen diese feinen Abstufungen.",
+    challenges:[{
+      anchors:[{w:"gl\u00fccklich",x:.2,y:.25},{w:"traurig",x:.2,y:.75},{w:"w\u00fctend",x:.75,y:.55}],
+      words:[{w:"freudig",x:.15,y:.2},{w:"deprimiert",x:.25,y:.8},{w:"zornig",x:.8,y:.5},{w:"ruhig",x:.45,y:.3},{w:"\u00e4ngstlich",x:.55,y:.6}],
+      explanation:"Positive Emotionen (gl\u00fccklich, freudig, ruhig) auf einer Seite, negative (traurig, deprimiert) auf der anderen. 'W\u00fctend' und 'zornig' bilden einen eigenen Cluster \u2014 energiereiche negative Emotionen unterscheiden sich von energiearmen."
+    }]
+  },
+  {
+    title:"Berufe",
+    description:"Berufe mit \u00e4hnlichen Kontexten werden zu Nachbarn. \u00c4rzte stehen neben Krankenschwestern, nicht neben Anw\u00e4lten.",
+    concept:"Kontextuelle \u00c4hnlichkeit",
+    takeaway:"Das Modell gruppiert Berufe nach Kontext. Ein 'Chirurg' und eine 'Krankenschwester' erscheinen in \u00e4hnlichen S\u00e4tzen (Krankenhaus, Patienten). Der Embedding-Raum spiegelt wider, wie wir \u00fcber Berufe sprechen.",
+    challenges:[{
+      anchors:[{w:"Arzt",x:.2,y:.3},{w:"Lehrer",x:.5,y:.7},{w:"Programmierer",x:.8,y:.3}],
+      words:[{w:"Krankenschwester",x:.2,y:.4},{w:"Chirurg",x:.25,y:.25},{w:"Professor",x:.45,y:.65},{w:"Ingenieur",x:.75,y:.35},{w:"Sch\u00fcler",x:.55,y:.75}],
+      explanation:"Medizin (Arzt, Krankenschwester, Chirurg) clustert eng. Bildung (Lehrer, Professor, Sch\u00fcler) bildet eine andere Gruppe. Technik (Programmierer, Ingenieur) sitzt zusammen."
+    }]
+  },
+  {
+    title:"Das Analogie-Spiel",
+    description:"Die magischste Eigenschaft: Beziehungen funktionieren wie Arithmetik. K\u00f6nig \u2212 Mann + Frau \u2248 K\u00f6nigin.",
+    concept:"Vektorarithmetik",
+    takeaway:"Wortbeziehungen sind als Richtungen im Raum kodiert. Die Richtung von 'Mann' zu 'Frau' ist dieselbe wie von 'K\u00f6nig' zu 'K\u00f6nigin'. Das ist nicht programmiert \u2014 es entsteht aus der Statistik der Sprache.",
+    challenges:[{
+      anchors:[{w:"K\u00f6nig",x:.7,y:.2},{w:"Mann",x:.3,y:.2},{w:"Frau",x:.3,y:.7}],
+      words:[{w:"K\u00f6nigin",x:.7,y:.7},{w:"Prinz",x:.65,y:.3},{w:"Prinzessin",x:.65,y:.6}],
+      explanation:"K\u00f6nig \u2212 Mann + Frau = K\u00f6nigin! Die 'Geschlechtsrichtung' ist konsistent. Prinz\u2192Prinzessin folgt demselben Muster. So kodieren Embeddings Beziehungen."
+    },{
+      anchors:[{w:"Paris",x:.2,y:.2},{w:"Frankreich",x:.2,y:.7},{w:"Deutschland",x:.7,y:.7}],
+      words:[{w:"Berlin",x:.7,y:.2},{w:"Rom",x:.35,y:.2},{w:"Italien",x:.35,y:.7}],
+      explanation:"Paris \u2212 Frankreich + Deutschland = Berlin! Die 'Hauptstadt-von'-Beziehung ist eine konsistente Richtung. Das Modell lernte Geografie nicht aus Karten, sondern aus Text."
+    }]
+  },
+  {
+    title:"Trickige Nachbarn",
+    description:"Manche Wortbeziehungen \u00fcberraschen. Gegens\u00e4tze k\u00f6nnen nah sein, und \u00e4hnliche W\u00f6rter weit entfernt.",
+    concept:"\u00dcberraschende \u00c4hnlichkeiten",
+    takeaway:"Embeddings spiegeln Sprache wider, nicht Wahrheit. 'Gut' und 'schlecht' sind \u00fcberraschend nah \u2014 sie werden in denselben Kontexten benutzt. Auch Verzerrungen im Text werden zu Verzerrungen in Embeddings.",
+    challenges:[{
+      anchors:[{w:"gut",x:.25,y:.2},{w:"schlecht",x:.25,y:.75},{w:"gro\u00df",x:.75,y:.2}],
+      words:[{w:"toll",x:.3,y:.15},{w:"furchtbar",x:.3,y:.7},{w:"klein",x:.75,y:.75},{w:"riesig",x:.8,y:.25},{w:"b\u00f6se",x:.35,y:.8}],
+      explanation:"'Gut' und 'schlecht' sind \u00fcberraschend nah \u2014 sie teilen Bewertungskontexte. 'Gro\u00df' und 'klein' sind auch Nachbarn, weil sie Gr\u00f6\u00dfenkontexte teilen. Antonyme sind oft Nachbarn!"
+    },{
+      anchors:[{w:"Kaffee",x:.2,y:.35},{w:"Bier",x:.7,y:.35},{w:"Wasser",x:.45,y:.7}],
+      words:[{w:"Tee",x:.25,y:.3},{w:"Wein",x:.75,y:.3},{w:"Saft",x:.4,y:.6},{w:"Espresso",x:.2,y:.25},{w:"Milch",x:.45,y:.55}],
+      explanation:"Hei\u00dfgetr\u00e4nke (Kaffee, Tee, Espresso) clustern. Alkoholische Getr\u00e4nke (Bier, Wein) clustern. 'Wasser', 'Saft' und 'Milch' sitzen dazwischen als neutrale Getr\u00e4nke."
+    }]
+  }
+]},
+fr: { rounds: [
+  {
+    title:"R\u00e8gne animal",
+    description:"Les animaux similaires se retrouvent proches dans l\u2019espace des mots. Les animaux domestiques se regroupent, les poissons aussi.",
+    concept:"Clusters s\u00e9mantiques",
+    takeaway:"Le mod\u00e8le a appris que 'chien' et 'chat' sont plus similaires que 'chien' et 'requin' juste en lisant du texte. Les mots dans des contextes similaires re\u00e7oivent des embeddings similaires.",
+    challenges:[{
+      anchors:[{w:"chien",x:.2,y:.3},{w:"requin",x:.75,y:.7},{w:"aigle",x:.55,y:.15}],
+      words:[{w:"chat",x:.25,y:.25},{w:"chiot",x:.15,y:.35},{w:"saumon",x:.7,y:.75},{w:"perroquet",x:.5,y:.2},{w:"baleine",x:.8,y:.6}],
+      explanation:"Animaux domestiques (chien, chat, chiot) d\u2019un c\u00f4t\u00e9, cr\u00e9atures marines (requin, saumon, baleine) de l\u2019autre, oiseaux (aigle, perroquet) ensemble. Le mod\u00e8le a d\u00e9couvert la taxonomie animale dans les textes."
+    }]
+  },
+  {
+    title:"Sentiments & \u00e9motions",
+    description:"Les \u00e9motions ont une g\u00e9om\u00e9trie. Heureux est loin de triste, mais col\u00e8re et fureur sont voisins.",
+    concept:"Gradients de sens",
+    takeaway:"Les \u00e9motions ne sont pas juste 'positives' et 'n\u00e9gatives' \u2014 elles forment un paysage riche. Les embeddings capturent ces nuances subtiles.",
+    challenges:[{
+      anchors:[{w:"heureux",x:.2,y:.25},{w:"triste",x:.2,y:.75},{w:"en col\u00e8re",x:.75,y:.55}],
+      words:[{w:"joyeux",x:.15,y:.2},{w:"d\u00e9prim\u00e9",x:.25,y:.8},{w:"furieux",x:.8,y:.5},{w:"calme",x:.45,y:.3},{w:"anxieux",x:.55,y:.6}],
+      explanation:"\u00c9motions positives (heureux, joyeux, calme) d\u2019un c\u00f4t\u00e9, n\u00e9gatives (triste, d\u00e9prim\u00e9) de l\u2019autre. 'En col\u00e8re' et 'furieux' forment leur propre cluster \u2014 l\u2019intensit\u00e9 compte, pas seulement la polarit\u00e9."
+    }]
+  },
+  {
+    title:"M\u00e9tiers",
+    description:"Les m\u00e9tiers dans des contextes similaires deviennent voisins. Les m\u00e9decins sont pr\u00e8s des infirmiers, pas des avocats.",
+    concept:"Similarit\u00e9 contextuelle",
+    takeaway:"Le mod\u00e8le groupe les m\u00e9tiers par contexte. Un 'chirurgien' et un 'infirmier' apparaissent dans des phrases similaires. L\u2019espace des embeddings refl\u00e8te comment on parle des m\u00e9tiers.",
+    challenges:[{
+      anchors:[{w:"m\u00e9decin",x:.2,y:.3},{w:"enseignant",x:.5,y:.7},{w:"programmeur",x:.8,y:.3}],
+      words:[{w:"infirmier",x:.2,y:.4},{w:"chirurgien",x:.25,y:.25},{w:"professeur",x:.45,y:.65},{w:"ing\u00e9nieur",x:.75,y:.35},{w:"\u00e9tudiant",x:.55,y:.75}],
+      explanation:"M\u00e9dical (m\u00e9decin, infirmier, chirurgien) se regroupe. \u00c9ducation (enseignant, professeur, \u00e9tudiant) aussi. Tech (programmeur, ing\u00e9nieur) ensemble."
+    }]
+  },
+  {
+    title:"Le jeu des analogies",
+    description:"La propri\u00e9t\u00e9 la plus magique : les relations fonctionnent comme l\u2019arithm\u00e9tique. Roi \u2212 Homme + Femme \u2248 Reine.",
+    concept:"Arithm\u00e9tique vectorielle",
+    takeaway:"Les relations entre mots sont encod\u00e9es comme des directions dans l\u2019espace. La direction de 'homme' \u00e0 'femme' est la m\u00eame que de 'roi' \u00e0 'reine'. Ce n\u2019est pas programm\u00e9 \u2014 \u00e7a \u00e9merge des statistiques.",
+    challenges:[{
+      anchors:[{w:"roi",x:.7,y:.2},{w:"homme",x:.3,y:.2},{w:"femme",x:.3,y:.7}],
+      words:[{w:"reine",x:.7,y:.7},{w:"prince",x:.65,y:.3},{w:"princesse",x:.65,y:.6}],
+      explanation:"roi \u2212 homme + femme = reine\u00a0! La 'direction de genre' est coh\u00e9rente. Prince\u2192princesse suit le m\u00eame motif. C\u2019est l\u2019arithm\u00e9tique vectorielle."
+    },{
+      anchors:[{w:"Paris",x:.2,y:.2},{w:"France",x:.2,y:.7},{w:"Allemagne",x:.7,y:.7}],
+      words:[{w:"Berlin",x:.7,y:.2},{w:"Rome",x:.35,y:.2},{w:"Italie",x:.35,y:.7}],
+      explanation:"Paris \u2212 France + Allemagne = Berlin\u00a0! La relation 'capitale de' est une direction coh\u00e9rente. Le mod\u00e8le a appris la g\u00e9ographie \u00e0 partir du texte."
+    }]
+  },
+  {
+    title:"Voisins surprenants",
+    description:"Certaines relations sont surprenantes. Les antonymes peuvent \u00eatre proches, et des mots apparemment similaires peuvent \u00eatre loin.",
+    concept:"Similarit\u00e9s surprenantes",
+    takeaway:"Les embeddings refl\u00e8tent le langage, pas la v\u00e9rit\u00e9. Les biais dans le texte deviennent des biais dans les embeddings \u2014 un d\u00e9fi fondamental pour l\u2019\u00e9quit\u00e9 en IA.",
+    challenges:[{
+      anchors:[{w:"bon",x:.25,y:.2},{w:"mauvais",x:.25,y:.75},{w:"grand",x:.75,y:.2}],
+      words:[{w:"excellent",x:.3,y:.15},{w:"terrible",x:.3,y:.7},{w:"petit",x:.75,y:.75},{w:"\u00e9norme",x:.8,y:.25},{w:"m\u00e9chant",x:.35,y:.8}],
+      explanation:"'Bon' et 'mauvais' sont \u00e9tonnamment proches \u2014 m\u00eames contextes d\u2019\u00e9valuation. 'Grand' et 'petit' aussi. Les antonymes sont souvent voisins\u00a0!"
+    },{
+      anchors:[{w:"caf\u00e9",x:.2,y:.35},{w:"bi\u00e8re",x:.7,y:.35},{w:"eau",x:.45,y:.7}],
+      words:[{w:"th\u00e9",x:.25,y:.3},{w:"vin",x:.75,y:.3},{w:"jus",x:.4,y:.6},{w:"espresso",x:.2,y:.25},{w:"lait",x:.45,y:.55}],
+      explanation:"Boissons chaudes (caf\u00e9, th\u00e9, espresso) ensemble. Alcools (bi\u00e8re, vin) ensemble. Boissons neutres (eau, jus, lait) entre les deux."
+    }]
+  }
+]},
+it: { rounds: [
+  {
+    title:"Regno animale",
+    description:"Animali simili finiscono vicini nello spazio delle parole. Gli animali domestici si raggruppano, i pesci si raggruppano.",
+    concept:"Cluster semantici",
+    takeaway:"Il modello ha imparato che 'cane' e 'gatto' sono pi\u00f9 simili di 'cane' e 'squalo' solo leggendo testo. Parole in contesti simili ottengono embedding simili.",
+    challenges:[{
+      anchors:[{w:"cane",x:.2,y:.3},{w:"squalo",x:.75,y:.7},{w:"aquila",x:.55,y:.15}],
+      words:[{w:"gatto",x:.25,y:.25},{w:"cucciolo",x:.15,y:.35},{w:"salmone",x:.7,y:.75},{w:"pappagallo",x:.5,y:.2},{w:"balena",x:.8,y:.6}],
+      explanation:"Domestici (cane, gatto, cucciolo) da un lato, creature marine (squalo, salmone, balena) dall\u2019altro, uccelli (aquila, pappagallo) insieme. Il modello ha scoperto la tassonomia dal testo."
+    }]
+  },
+  {
+    title:"Sentimenti & emozioni",
+    description:"Le emozioni hanno una geometria. Felice \u00e8 lontano da triste, ma arrabbiato e furioso sono vicini.",
+    concept:"Gradienti di significato",
+    takeaway:"Le emozioni non sono solo 'positive' e 'negative' \u2014 formano un paesaggio ricco. Gli embedding catturano queste sfumature sottili.",
+    challenges:[{
+      anchors:[{w:"felice",x:.2,y:.25},{w:"triste",x:.2,y:.75},{w:"arrabbiato",x:.75,y:.55}],
+      words:[{w:"gioioso",x:.15,y:.2},{w:"depresso",x:.25,y:.8},{w:"furioso",x:.8,y:.5},{w:"calmo",x:.45,y:.3},{w:"ansioso",x:.55,y:.6}],
+      explanation:"Emozioni positive (felice, gioioso, calmo) da un lato, negative (triste, depresso) dall\u2019altro. 'Arrabbiato' e 'furioso' formano un cluster proprio \u2014 l\u2019intensit\u00e0 conta."
+    }]
+  },
+  {
+    title:"Professioni",
+    description:"Le professioni in contesti simili diventano vicine. I medici sono vicini agli infermieri, non agli avvocati.",
+    concept:"Similarit\u00e0 contestuale",
+    takeaway:"Il modello raggruppa le professioni per contesto. Un 'chirurgo' e un 'infermiere' appaiono in frasi simili. Lo spazio degli embedding riflette come parliamo dei lavori.",
+    challenges:[{
+      anchors:[{w:"medico",x:.2,y:.3},{w:"insegnante",x:.5,y:.7},{w:"programmatore",x:.8,y:.3}],
+      words:[{w:"infermiere",x:.2,y:.4},{w:"chirurgo",x:.25,y:.25},{w:"professore",x:.45,y:.65},{w:"ingegnere",x:.75,y:.35},{w:"studente",x:.55,y:.75}],
+      explanation:"Medicina (medico, infermiere, chirurgo) si raggruppa. Educazione (insegnante, professore, studente) anche. Tech (programmatore, ingegnere) insieme."
+    }]
+  },
+  {
+    title:"Il gioco delle analogie",
+    description:"La propriet\u00e0 pi\u00f9 magica: le relazioni funzionano come l\u2019aritmetica. Re \u2212 Uomo + Donna \u2248 Regina.",
+    concept:"Aritmetica vettoriale",
+    takeaway:"Le relazioni tra parole sono codificate come direzioni nello spazio. La direzione da 'uomo' a 'donna' \u00e8 la stessa da 're' a 'regina'. Non \u00e8 programmato \u2014 emerge dalla statistica.",
+    challenges:[{
+      anchors:[{w:"re",x:.7,y:.2},{w:"uomo",x:.3,y:.2},{w:"donna",x:.3,y:.7}],
+      words:[{w:"regina",x:.7,y:.7},{w:"principe",x:.65,y:.3},{w:"principessa",x:.65,y:.6}],
+      explanation:"re \u2212 uomo + donna = regina! La 'direzione di genere' \u00e8 coerente. Principe\u2192principessa segue lo stesso schema. Questa \u00e8 l\u2019aritmetica vettoriale."
+    },{
+      anchors:[{w:"Parigi",x:.2,y:.2},{w:"Francia",x:.2,y:.7},{w:"Germania",x:.7,y:.7}],
+      words:[{w:"Berlino",x:.7,y:.2},{w:"Roma",x:.35,y:.2},{w:"Italia",x:.35,y:.7}],
+      explanation:"Parigi \u2212 Francia + Germania = Berlino! La relazione 'capitale di' \u00e8 una direzione coerente. Il modello ha imparato la geografia dal testo."
+    }]
+  },
+  {
+    title:"Vicini sorprendenti",
+    description:"Alcune relazioni sono sorprendenti. I contrari possono essere vicini, e parole apparentemente simili possono essere lontane.",
+    concept:"Similarit\u00e0 sorprendenti",
+    takeaway:"Gli embedding riflettono il linguaggio, non la verit\u00e0. I bias nel testo diventano bias negli embedding \u2014 una sfida fondamentale per l\u2019equit\u00e0 nell\u2019IA.",
+    challenges:[{
+      anchors:[{w:"buono",x:.25,y:.2},{w:"cattivo",x:.25,y:.75},{w:"grande",x:.75,y:.2}],
+      words:[{w:"ottimo",x:.3,y:.15},{w:"terribile",x:.3,y:.7},{w:"piccolo",x:.75,y:.75},{w:"enorme",x:.8,y:.25},{w:"malvagio",x:.35,y:.8}],
+      explanation:"'Buono' e 'cattivo' sono sorprendentemente vicini \u2014 condividono contesti valutativi. 'Grande' e 'piccolo' anche. I contrari sono spesso vicini!"
+    },{
+      anchors:[{w:"caff\u00e8",x:.2,y:.35},{w:"birra",x:.7,y:.35},{w:"acqua",x:.45,y:.7}],
+      words:[{w:"t\u00e8",x:.25,y:.3},{w:"vino",x:.75,y:.3},{w:"succo",x:.4,y:.6},{w:"espresso",x:.2,y:.25},{w:"latte",x:.45,y:.55}],
+      explanation:"Bevande calde (caff\u00e8, t\u00e8, espresso) insieme. Alcolici (birra, vino) insieme. Bevande neutre (acqua, succo, latte) nel mezzo."
+    }]
+  }
+]}
+};
+
+// ==================== STATE ====================
+let lang='en', gameData=null;
+const state = {
+  round:0, challenge:0, score:0,
+  roundScore:0, roundClose:0, roundTotal:0,
+  totalChallenges:0, completedChallenges:0, maxScore:0,
+  placements:{}, dragging:null, dragOffX:0, dragOffY:0,
+};
+const $=id=>document.getElementById(id);
+const show=id=>{document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));$(id).classList.add('active');};
+const t=()=>UI[lang];
+function getCR(){return gameData.rounds[state.round];}
+function getCC(){return getCR().challenges[state.challenge];}
+
+// ==================== CANVAS ====================
+let canvasW=0, canvasH=0;
+function resizeCanvas(){
+  const wrap=$('canvas-wrap');
+  const c=$('canvas');
+  const r=wrap.getBoundingClientRect();
+  canvasW=r.width; canvasH=r.height;
+  c.width=canvasW*devicePixelRatio;
+  c.height=canvasH*devicePixelRatio;
+  c.style.width=canvasW+'px';
+  c.style.height=canvasH+'px';
+}
+function drawGrid(){
+  resizeCanvas();
+  const c=$('canvas'), ctx=c.getContext('2d');
+  ctx.scale(devicePixelRatio,devicePixelRatio);
+  ctx.clearRect(0,0,canvasW,canvasH);
+  // Subtle grid
+  ctx.strokeStyle='rgba(255,255,255,0.04)';
+  ctx.lineWidth=1;
+  for(let i=0;i<=10;i++){
+    const x=canvasW*i/10, y=canvasH*i/10;
+    ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,canvasH);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(canvasW,y);ctx.stroke();
+  }
+}
+function drawAnchors(ch){
+  const wrap=$('canvas-wrap');
+  wrap.querySelectorAll('.anchor-label,.placed-label,.result-label').forEach(e=>e.remove());
+  ch.anchors.forEach(a=>{
+    const c=$('canvas'),ctx=c.getContext('2d');
+    const px=a.x*canvasW, py=a.y*canvasH;
+    ctx.save();ctx.scale(devicePixelRatio,devicePixelRatio);
+    ctx.fillStyle='rgba(255,255,255,0.6)';
+    ctx.beginPath();ctx.arc(px,py,6,0,Math.PI*2);ctx.fill();
+    ctx.restore();
+    const lbl=document.createElement('div');
+    lbl.className='anchor-label';
+    lbl.textContent=a.w;
+    lbl.style.left=px+'px'; lbl.style.top=py+'px';
+    wrap.appendChild(lbl);
+  });
+}
+function drawPlacement(word, px, py){
+  const wrap=$('canvas-wrap');
+  // Remove old label for this word
+  wrap.querySelectorAll('.placed-label').forEach(l=>{if(l.dataset.word===word)l.remove();});
+  const lbl=document.createElement('div');
+  lbl.className='placed-label'; lbl.dataset.word=word;
+  lbl.textContent=word;
+  lbl.style.left=px+'px'; lbl.style.top=py+'px';
+  wrap.appendChild(lbl);
+  // Draw dot on canvas
+  redrawCanvas();
+}
+function redrawCanvas(){
+  drawGrid();
+  const ch=getCC();
+  // Draw anchors
+  const c=$('canvas'),ctx=c.getContext('2d');
+  ctx.save();ctx.scale(devicePixelRatio,devicePixelRatio);
+  ch.anchors.forEach(a=>{
+    ctx.fillStyle='rgba(255,255,255,0.6)';
+    ctx.beginPath();ctx.arc(a.x*canvasW,a.y*canvasH,6,0,Math.PI*2);ctx.fill();
+  });
+  // Draw placed words
+  Object.entries(state.placements).forEach(([w,pos])=>{
+    ctx.fillStyle='rgba(99,102,241,0.8)';
+    ctx.beginPath();ctx.arc(pos.px,pos.py,5,0,Math.PI*2);ctx.fill();
+  });
+  ctx.restore();
+}
+
+// ==================== INIT ====================
+function init(){
+  const grid=$('lang-grid');grid.innerHTML='';
+  [{code:'en',flag:'\ud83c\uddec\ud83c\udde7',label:'English'},{code:'de',flag:'\ud83c\udde9\ud83c\uddea',label:'Deutsch'},{code:'fr',flag:'\ud83c\uddeb\ud83c\uddf7',label:'Fran\u00e7ais'},{code:'it',flag:'\ud83c\uddee\ud83c\uddf9',label:'Italiano'}].forEach(l=>{
+    const btn=document.createElement('button');btn.className='lang-btn';
+    btn.innerHTML=`<span class="lang-flag">${l.flag}</span>${l.label}`;
+    btn.addEventListener('click',()=>startWithLang(l.code));
+    grid.appendChild(btn);
+  });
+  $('title-heading').innerHTML=UI.en.heading;
+  $('title-subtitle').textContent=UI.en.subtitle;
+}
+function startWithLang(code){
+  lang=code; document.documentElement.lang=code;
+  gameData=GAME_DATA_ALL[code];
+  state.round=0;state.score=0;state.completedChallenges=0;
+  state.totalChallenges=0;state.maxScore=0;
+  gameData.rounds.forEach(r=>{state.totalChallenges+=r.challenges.length;r.challenges.forEach(()=>state.maxScore+=100);});
+  showRoundIntro();
+}
+
+// ==================== GAME FLOW ====================
+function showRoundIntro(){
+  const r=getCR();
+  $('intro-round-num').textContent=t().roundN(state.round+1,gameData.rounds.length);
+  $('intro-title').textContent=r.title;
+  $('intro-desc').textContent=r.description;
+  $('intro-concept').textContent=r.concept;
+  $('btn-begin').textContent=t().begin;
+  show('screen-round-intro');
+}
+function startRound(){
+  state.challenge=0;state.roundScore=0;state.roundClose=0;state.roundTotal=0;
+  show('screen-play');
+  showChallenge();
+}
+function showChallenge(){
+  const r=getCR(), ch=getCC();
+  $('play-round-label').textContent=t().roundN(state.round+1,gameData.rounds.length);
+  $('play-round-title').textContent=r.title;
+  $('play-score').textContent=state.score;
+  $('play-instruction').textContent=t().instruction;
+  $('btn-submit').textContent=t().submit;
+  $('btn-reset').textContent=t().reset;
+  $('explanation-label').textContent=t().howItWorks;
+  $('submit-row').style.display='flex';
+  $('continue-row').style.display='none';
+  $('explanation-area').classList.remove('visible');
+  $('next-row').style.display='none';
+  state.placements={};
+
+  // Build word tray
+  const tray=$('word-tray'); tray.innerHTML='';
+  const shuffled=[...ch.words];
+  for(let i=shuffled.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[shuffled[i],shuffled[j]]=[shuffled[j],shuffled[i]];}
+  shuffled.forEach(w=>{
+    const chip=document.createElement('div');chip.className='word-chip';chip.textContent=w.w;
+    chip.dataset.word=w.w;
+    // Drag support
+    chip.addEventListener('pointerdown',e=>startDrag(e,w.w,chip));
+    tray.appendChild(chip);
+  });
+
+  // Draw canvas
+  setTimeout(()=>{
+    drawGrid();
+    drawAnchors(ch);
+    // Re-add anchor labels
+    const wrap=$('canvas-wrap');
+    wrap.querySelectorAll('.anchor-label,.placed-label,.result-label').forEach(e=>e.remove());
+    ch.anchors.forEach(a=>{
+      const lbl=document.createElement('div');lbl.className='anchor-label';
+      lbl.textContent=a.w;lbl.style.left=(a.x*canvasW)+'px';lbl.style.top=(a.y*canvasH)+'px';
+      wrap.appendChild(lbl);
+    });
+  },50);
+  updateProgress();
+}
+
+// ==================== DRAG & DROP ====================
+function startDrag(e,word,chip){
+  e.preventDefault();
+  state.dragging=word;
+  chip.classList.add('dragging');
+  chip.setPointerCapture(e.pointerId);
+
+  const onMove=ev=>{
+    const wrap=$('canvas-wrap');
+    const rect=wrap.getBoundingClientRect();
+    const px=ev.clientX-rect.left, py=ev.clientY-rect.top;
+    if(px>=0&&px<=canvasW&&py>=0&&py<=canvasH){
+      state.placements[word]={px,py};
+      drawPlacement(word,px,py);
+      chip.classList.add('placed');
+    }
+  };
+  const onUp=ev=>{
+    chip.classList.remove('dragging');
+    chip.removeEventListener('pointermove',onMove);
+    chip.removeEventListener('pointerup',onUp);
+    state.dragging=null;
+  };
+  chip.addEventListener('pointermove',onMove);
+  chip.addEventListener('pointerup',onUp);
+}
+
+function resetPlacements(){
+  state.placements={};
+  $('canvas-wrap').querySelectorAll('.placed-label,.result-label').forEach(e=>e.remove());
+  $('word-tray').querySelectorAll('.word-chip').forEach(c=>c.classList.remove('placed'));
+  redrawCanvas();
+  const ch=getCC();
+  ch.anchors.forEach(a=>{
+    const lbl=document.createElement('div');lbl.className='anchor-label';
+    lbl.textContent=a.w;lbl.style.left=(a.x*canvasW)+'px';lbl.style.top=(a.y*canvasH)+'px';
+    $('canvas-wrap').appendChild(lbl);
+  });
+}
+
+function submitPlacements(){
+  const ch=getCC();
+  // Check all words placed
+  const unplaced=ch.words.filter(w=>!state.placements[w.w]);
+  if(unplaced.length>0){
+    // Flash tray
+    $('word-tray').style.borderColor='var(--amber)';
+    setTimeout(()=>$('word-tray').style.borderColor='',600);
+    return;
+  }
+
+  $('submit-row').style.display='none';
+
+  // Score each word
+  let totalDist=0, closeCount=0;
+  const wrap=$('canvas-wrap');
+  wrap.querySelectorAll('.placed-label').forEach(e=>e.remove());
+
+  ch.words.forEach(w=>{
+    const actual={px:w.x*canvasW, py:w.y*canvasH};
+    const placed=state.placements[w.w];
+    const dist=Math.sqrt((actual.px-placed.px)**2+(actual.py-placed.py)**2);
+    const maxDist=Math.sqrt(canvasW**2+canvasH**2);
+    const normDist=dist/maxDist;
+    totalDist+=normDist;
+
+    const isClose=normDist<0.12;
+    const isOk=normDist<0.25;
+    if(isClose)closeCount++;
+
+    // Draw line from placed to actual
+    const c=$('canvas'),ctx=c.getContext('2d');
+    ctx.save();ctx.scale(devicePixelRatio,devicePixelRatio);
+    ctx.strokeStyle=isClose?'rgba(34,197,94,0.5)':isOk?'rgba(245,158,11,0.5)':'rgba(239,68,68,0.4)';
+    ctx.lineWidth=2;ctx.setLineDash([4,4]);
+    ctx.beginPath();ctx.moveTo(placed.px,placed.py);ctx.lineTo(actual.px,actual.py);ctx.stroke();
+    // Actual position dot
+    ctx.fillStyle=isClose?'var(--green)':isOk?'var(--amber)':'var(--red)';
+    ctx.setLineDash([]);
+    ctx.beginPath();ctx.arc(actual.px,actual.py,5,0,Math.PI*2);ctx.fill();
+    ctx.restore();
+
+    // Label at actual position
+    const lbl=document.createElement('div');
+    lbl.className='result-label '+(isClose?'good':isOk?'ok':'bad');
+    lbl.textContent=w.w;
+    lbl.style.left=actual.px+'px';lbl.style.top=actual.py+'px';
+    wrap.appendChild(lbl);
+  });
+
+  const avgDist=totalDist/ch.words.length;
+  const points=Math.round(Math.max(0,(1-avgDist*2.5))*100);
+  state.score+=points;state.roundScore+=points;state.roundClose+=closeCount;state.roundTotal++;
+
+  const quality=points>=80?'good':points>=40?'ok':'bad';
+  $('continue-row').style.display='flex';
+  $('round-points').className='score-pill '+quality;
+  $('round-points').textContent=`+${points}`;
+  $('play-score').textContent=state.score;
+
+  $('explanation-text').textContent=ch.explanation;
+  $('explanation-area').classList.add('visible');
+  $('next-row').style.display='flex';
+  $('btn-next').textContent=t().continue_;
+}
+
+function nextChallenge(){
+  state.completedChallenges++;
+  const r=getCR();
+  if(state.challenge+1<r.challenges.length){state.challenge++;showChallenge();return;}
+  showRoundSummary();
+}
+function showRoundSummary(){
+  const r=getCR();
+  $('summary-round-num').textContent=t().roundComplete(state.round+1);
+  $('summary-score').textContent=`+${state.roundScore}`;
+  $('summary-breakdown').textContent=t().breakdown(state.roundClose,state.roundTotal*getCC()?.words?.length||0,state.score);
+  $('summary-takeaway-label').textContent=t().keyTakeaway;
+  $('summary-takeaway').textContent=r.takeaway;
+  $('btn-next-round').textContent=state.round+1>=gameData.rounds.length?t().seeResults:t().nextRound;
+  show('screen-round-summary');
+}
+function nextRound(){
+  if(state.round+1>=gameData.rounds.length){showComplete();return;}
+  state.round++;state.challenge=0;showRoundIntro();
+}
+function showComplete(){
+  const pct=state.score/state.maxScore;
+  const idx=pct>=.9?4:pct>=.75?3:pct>=.5?2:pct>=.25?1:0;
+  $('complete-heading').textContent=t().gameComplete;
+  $('final-score').textContent=state.score;
+  $('final-title').textContent=t().titles[idx];
+  $('final-desc').textContent=t().titleDescs[idx];
+  $('btn-play-again').textContent=t().playAgain;
+  $('btn-all-games').textContent=t().allGames;
+  const grid=$('concepts-grid');grid.innerHTML='';
+  t().concepts.forEach(([ti,de])=>{
+    const card=document.createElement('div');card.className='concept-card';
+    card.innerHTML=`<div class="cc-title">${ti}</div><div class="cc-desc">${de}</div>`;
+    grid.appendChild(card);
+  });
+  show('screen-complete');
+}
+function updateProgress(){
+  $('progress-fill').style.width=`${(state.completedChallenges/state.totalChallenges)*100}%`;
+  $('progress-label').textContent=t().stepN(state.completedChallenges+1,state.totalChallenges);
+}
+
+// ==================== KEYBOARD ====================
+document.addEventListener('keydown',e=>{
+  if(e.key==='Enter'||e.key===' '){
+    e.preventDefault();
+    if($('next-row').style.display!=='none'){$('btn-next').click();return;}
+    const active=document.querySelector('.screen.active');
+    if(active){const btn=active.querySelector('.btn-primary');if(btn)btn.click();}
+  }
+});
+
+// Window resize
+window.addEventListener('resize',()=>{if(document.querySelector('#screen-play.active'))showChallenge();});
+
+// Auto-start if lang passed via URL
+const urlLang=new URLSearchParams(window.location.search).get('lang');
+if(urlLang&&GAME_DATA_ALL[urlLang]){init();startWithLang(urlLang);}else{init();}
+</script>
+</body>
+</html>
